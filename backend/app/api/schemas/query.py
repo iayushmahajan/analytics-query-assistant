@@ -13,4 +13,8 @@ class QueryResponse(BaseModel):
     generated_sql: str
     explanation: str
     status: str
+    columns: list[str]
+    rows: list[list]
+    row_count: int
+    execution_time_ms: int
     created_at: datetime

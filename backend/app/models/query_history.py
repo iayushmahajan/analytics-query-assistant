@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -16,4 +16,6 @@ class QueryHistory(Base):
     generated_sql: Mapped[str] = mapped_column(Text, nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    row_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    execution_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)

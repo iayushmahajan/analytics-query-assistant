@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.schemas.query import QueryRequest, QueryResponse
 from app.core.db import SessionLocal
 from app.models import QueryHistory
+from app.services.sql_executor import SQLExecutionError, execute_select_sql
 from app.services.sql_generator import SQLGenerationError, generate_sql_and_explanation
 from app.services.sql_validator import SQLValidationError, validate_and_sanitize_sql
 
@@ -28,12 +29,16 @@ def save_history_item(
     generated_sql: str,
     explanation: str,
     status: str,
+    row_count: int | None = None,
+    execution_time_ms: int | None = None,
 ) -> QueryHistory:
     history_item = QueryHistory(
         question=question,
         generated_sql=generated_sql,
         explanation=explanation,
         status=status,
+        row_count=row_count,
+        execution_time_ms=execution_time_ms,
     )
     db.add(history_item)
     db.commit()
@@ -59,14 +64,20 @@ def create_query(payload: QueryRequest, db: Session = Depends(get_db)):
                 generated_sql="",
                 explanation="The request could not be converted into a safe read-only SQL query.",
                 status="blocked",
+                row_count=0,
+                execution_time_ms=0,
             )
 
             return QueryResponse(
                 id=history_item.id,
                 question=history_item.question,
-                generated_sql=history_item.generated_sql,
+                generated_sql="",
                 explanation=history_item.explanation,
                 status=history_item.status,
+                columns=[],
+                rows=[],
+                row_count=0,
+                execution_time_ms=0,
                 created_at=history_item.created_at,
             )
 
@@ -79,10 +90,60 @@ def create_query(payload: QueryRequest, db: Session = Depends(get_db)):
         final_explanation = generated["explanation"]
     except SQLValidationError as exc:
         logger.warning("SQL validation blocked query: %s", str(exc))
-        safe_sql = generated["generated_sql"]
-        final_status = "blocked"
-        final_explanation = (
-            f"{generated['explanation']} Validation blocked this SQL: {str(exc)}"
+
+        blocked_explanation = (
+            f"{generated['explanation']} Validation blocked this request: {str(exc)}"
+        )
+
+        history_item = save_history_item(
+            db=db,
+            question=payload.question,
+            generated_sql="",
+            explanation=blocked_explanation,
+            status="blocked",
+            row_count=0,
+            execution_time_ms=0,
+        )
+
+        return QueryResponse(
+            id=history_item.id,
+            question=history_item.question,
+            generated_sql="",
+            explanation=history_item.explanation,
+            status=history_item.status,
+            columns=[],
+            rows=[],
+            row_count=0,
+            execution_time_ms=0,
+            created_at=history_item.created_at,
+        )
+
+    try:
+        execution_result = execute_select_sql(db, safe_sql)
+    except SQLExecutionError as exc:
+        logger.error("SQL execution failed: %s", str(exc))
+
+        history_item = save_history_item(
+            db=db,
+            question=payload.question,
+            generated_sql=safe_sql,
+            explanation=f"{final_explanation} Execution failed: {str(exc)}",
+            status="execution_failed",
+            row_count=0,
+            execution_time_ms=0,
+        )
+
+        return QueryResponse(
+            id=history_item.id,
+            question=history_item.question,
+            generated_sql=history_item.generated_sql,
+            explanation=history_item.explanation,
+            status=history_item.status,
+            columns=[],
+            rows=[],
+            row_count=0,
+            execution_time_ms=0,
+            created_at=history_item.created_at,
         )
 
     history_item = save_history_item(
@@ -91,6 +152,8 @@ def create_query(payload: QueryRequest, db: Session = Depends(get_db)):
         generated_sql=safe_sql,
         explanation=final_explanation,
         status=final_status,
+        row_count=execution_result["row_count"],
+        execution_time_ms=execution_result["execution_time_ms"],
     )
 
     return QueryResponse(
@@ -99,5 +162,9 @@ def create_query(payload: QueryRequest, db: Session = Depends(get_db)):
         generated_sql=history_item.generated_sql,
         explanation=history_item.explanation,
         status=history_item.status,
+        columns=execution_result["columns"],
+        rows=execution_result["rows"],
+        row_count=execution_result["row_count"],
+        execution_time_ms=execution_result["execution_time_ms"],
         created_at=history_item.created_at,
     )
