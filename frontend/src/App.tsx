@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./lib/api";
 import type { ExampleItem, HistoryItem, QueryResponse } from "./types/query";
 import { QueryInputCard } from "./components/QueryInputCard";
@@ -18,6 +18,9 @@ function App() {
   const [result, setResult] = useState<QueryResponse | null>(initialResult);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const resultsSectionRef = useRef<HTMLDivElement | null>(null);
 
   async function loadExamples() {
     const response = await api.get<ExampleItem[]>("/examples");
@@ -34,6 +37,15 @@ function App() {
     void loadHistory();
   }, []);
 
+  function scrollToResults() {
+    window.setTimeout(() => {
+      resultsSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 120);
+  }
+
   async function runQuery(customQuestion?: string) {
     if (isLoading) return;
 
@@ -42,6 +54,7 @@ function App() {
 
     setIsLoading(true);
     setErrorMessage("");
+    setCopied(false);
 
     try {
       const response = await api.post<QueryResponse>("/query", {
@@ -51,6 +64,7 @@ function App() {
       setQuestion(finalQuestion);
       setResult(response.data);
       await loadHistory();
+      scrollToResults();
     } catch (error: any) {
       const status = error?.response?.status;
       const detail = error?.response?.data?.detail;
@@ -64,6 +78,8 @@ function App() {
           detail || "Something went wrong while running the query."
         );
       }
+
+      scrollToResults();
     } finally {
       setIsLoading(false);
     }
@@ -72,11 +88,14 @@ function App() {
   function clearResults() {
     setResult(null);
     setErrorMessage("");
+    setCopied(false);
   }
 
   async function copySql() {
     if (!result?.generated_sql) return;
     await navigator.clipboard.writeText(result.generated_sql);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   function selectHistoryItem(item: HistoryItem) {
@@ -93,6 +112,9 @@ function App() {
       created_at: item.created_at,
     });
     setQuestion(item.question);
+    setErrorMessage("");
+    setCopied(false);
+    scrollToResults();
   }
 
   const status = useMemo(() => result?.status, [result]);
@@ -147,13 +169,7 @@ function App() {
           </div>
         </div>
 
-        {errorMessage && (
-          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {errorMessage}
-          </div>
-        )}
-
-        <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+        <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
           <div className="space-y-6">
             <QueryInputCard
               question={question}
@@ -171,24 +187,58 @@ function App() {
               }}
             />
 
-            <QueryStatusCard
-              status={status}
-              rowCount={result?.row_count}
-              executionTimeMs={result?.execution_time_ms}
-            />
+            <div ref={resultsSectionRef} className="space-y-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-400">Results</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">
+                    Query output
+                  </h2>
+                </div>
 
-            <ExplanationCard explanation={result?.explanation} />
+                {result?.created_at && (
+                  <p className="text-xs text-slate-500">
+                    Last updated: {new Date(result.created_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
 
-            <SqlPreviewCard sql={result?.generated_sql} onCopy={() => void copySql()} />
+              {errorMessage && (
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {errorMessage}
+                </div>
+              )}
 
-            <ResultsTableCard
-              columns={result?.columns ?? []}
-              rows={result?.rows ?? []}
-            />
+              <QueryStatusCard
+                status={status}
+                rowCount={result?.row_count}
+                executionTimeMs={result?.execution_time_ms}
+              />
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <ExplanationCard explanation={result?.explanation} />
+
+                <SqlPreviewCard
+                  sql={result?.generated_sql}
+                  copied={copied}
+                  onCopy={() => void copySql()}
+                />
+              </div>
+
+              <ResultsTableCard
+                columns={result?.columns ?? []}
+                rows={result?.rows ?? []}
+              />
+            </div>
           </div>
 
           <div className="space-y-6">
-            <HistoryCard history={history} onSelectHistoryItem={selectHistoryItem} />
+            <HistoryCard
+              history={history}
+              isLoading={isLoading}
+              onRefresh={() => void loadHistory()}
+              onSelectHistoryItem={selectHistoryItem}
+            />
           </div>
         </div>
       </div>
