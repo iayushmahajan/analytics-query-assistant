@@ -2,6 +2,8 @@ import type { HistoryItem } from "../types/query";
 
 type HistoryCardProps = {
     history: HistoryItem[];
+    isLoading: boolean;
+    onRefresh: () => void;
     onSelectHistoryItem: (item: HistoryItem) => void;
 };
 
@@ -20,13 +22,25 @@ function getStatusClasses(status: string) {
 
 export function HistoryCard({
     history,
+    isLoading,
+    onRefresh,
     onSelectHistoryItem,
 }: HistoryCardProps) {
     return (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-            <div className="mb-4">
-                <p className="text-sm font-medium text-slate-400">Recent activity</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Query history</h2>
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-medium text-slate-400">Recent activity</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">Query history</h2>
+                </div>
+
+                <button
+                    onClick={onRefresh}
+                    disabled={isLoading}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Refresh
+                </button>
             </div>
 
             <div className="space-y-3">

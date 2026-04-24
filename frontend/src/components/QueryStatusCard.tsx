@@ -19,6 +19,21 @@ function getStatusClasses(status?: string) {
     }
 }
 
+function getStatusText(status?: string) {
+    switch (status) {
+        case "validated":
+            return "Safe SQL validated and executed successfully.";
+        case "blocked":
+            return "The request was blocked because it could not be converted into a safe read-only query.";
+        case "execution_failed":
+            return "The SQL passed validation but failed during execution.";
+        case "needs_review":
+            return "The query was generated, but it may need manual review.";
+        default:
+            return "No query has been run yet.";
+    }
+}
+
 export function QueryStatusCard({
     status,
     rowCount,
@@ -41,6 +56,9 @@ export function QueryStatusCard({
                     >
                         {status ?? "not run"}
                     </span>
+                    <p className="mt-3 text-xs leading-6 text-slate-400">
+                        {getStatusText(status)}
+                    </p>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">

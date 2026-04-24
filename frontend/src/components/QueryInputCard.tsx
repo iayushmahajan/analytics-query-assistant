@@ -41,11 +41,16 @@ export function QueryInputCard({
 
                     <button
                         onClick={onClear}
-                        className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
+                        disabled={isLoading}
+                        className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Clear results
                     </button>
                 </div>
+
+                <p className="text-xs text-slate-500">
+                    Tip: choose an example below to fill the input, then run it manually.
+                </p>
             </div>
         </div>
     );
