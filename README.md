@@ -4,6 +4,28 @@ A full-stack analytics assistant that turns plain-English business questions int
 
 ---
 
+## Live Demo
+
+**Try the app here:**  
+https://analytics-query-assistant.vercel.app
+
+## Screenshots
+
+### Dashboard overview
+<p>
+  <img src="docs/screenshots/dashboard-overview.png" alt="Dashboard overview" width="900" />
+</p>
+
+### Query output
+<p>
+  <img src="docs/screenshots/query-output.png" alt="Query output" width="900" />
+</p>
+
+### Results table
+<p>
+  <img src="docs/screenshots/results-table.png" alt="Results table" width="900" />
+</p>
+
 ## Overview
 
 Analytics Query Assistant is a portfolio-grade full-stack project built around a practical product idea: let a user ask business questions in natural language and translate those questions into safe SQL for analytics.
@@ -135,33 +157,17 @@ The frontend includes:
 
 ---
 
-## Project Architecture
+## Architecture Overview
 
-```text
-User
-  ↓
-Frontend Dashboard (React + TypeScript + Tailwind)
-  ↓
-POST /query
-  ↓
-FastAPI Backend
-  ↓
-Prompt Builder + Schema Context
-  ↓
-GitHub Models (GPT-4.1)
-  ↓
-Generated SQL + Explanation
-  ↓
-SQL Validator
-  ↓
-Safe SQL only
-  ↓
-PostgreSQL Execution
-  ↓
-Rows + Columns + Row Count + Execution Time
-  ↓
-Frontend Results UI + Query History
-```
+<p>
+  <img src="docs/screenshots/architecture-overview.png" alt="Dashboard overview" width="900" />
+</p>
+
+## Request Flow
+
+<p>
+  <img src="docs/screenshots/sequence.png" alt="Dashboard overview" width="900" />
+</p>
 
 ### Database Schema
 The project uses a locked e-commerce / sales analytics schema with six core tables.
