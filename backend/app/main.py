@@ -27,10 +27,8 @@ def on_startup() -> None:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://analytics-query-assistant.vercel.app",
-    ],
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
+    allow_origin_regex=settings.CORS_ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
