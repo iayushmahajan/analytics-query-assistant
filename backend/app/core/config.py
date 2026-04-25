@@ -23,5 +23,14 @@ class Settings:
 
     MAX_SQL_ROWS: int = int(os.getenv("MAX_SQL_ROWS", "100"))
 
+    CORS_ALLOWED_ORIGINS: list[str] = [
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ALLOWED_ORIGINS",
+            "http://localhost:5173",
+        ).split(",")
+        if origin.strip()
+    ]
+
 
 settings = Settings()
