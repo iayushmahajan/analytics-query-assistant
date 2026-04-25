@@ -41,6 +41,4 @@ app.include_router(query_router)
 
 @app.get("/")
 def root():
-    return {
-        "message": "Analytics Query Assistant API is running"
-    }
+    return {"message": "Analytics Query Assistant API is running"}
