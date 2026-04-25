@@ -9,6 +9,8 @@ A full-stack analytics assistant that turns plain-English business questions int
 **Try the app here:**  
 https://analytics-query-assistant.vercel.app
 
+> Note: The backend is hosted on Render’s free tier and may take a short time to wake up on the first request after inactivity.
+
 ## Screenshots
 
 ### Dashboard overview
