@@ -1,57 +1,25 @@
-type QueryInputCardProps = {
-    question: string;
-    isLoading: boolean;
-    onQuestionChange: (value: string) => void;
-    onSubmit: () => void;
-    onClear: () => void;
+import type { ExampleItem } from '../types/query';
+
+type Props = {
+  question: string; isLoading: boolean; examples: ExampleItem[];
+  onQuestionChange: (value: string) => void; onSubmit: () => void; onClear: () => void;
 };
-
-export function QueryInputCard({
-    question,
-    isLoading,
-    onQuestionChange,
-    onSubmit,
-    onClear,
-}: QueryInputCardProps) {
-    return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-            <div className="mb-4">
-                <p className="text-sm font-medium text-slate-400">Ask a business question</p>
-                <h2 className="mt-1 text-xl font-semibold text-white">
-                    Natural language to SQL
-                </h2>
-            </div>
-
-            <div className="space-y-4">
-                <textarea
-                    value={question}
-                    onChange={(e) => onQuestionChange(e.target.value)}
-                    placeholder="Example: Show total revenue by country"
-                    className="min-h-[120px] w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-blue-500"
-                />
-
-                <div className="flex flex-wrap gap-3">
-                    <button
-                        onClick={onSubmit}
-                        disabled={isLoading || !question.trim()}
-                        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-700"
-                    >
-                        {isLoading ? "Running..." : "Run query"}
-                    </button>
-
-                    <button
-                        onClick={onClear}
-                        disabled={isLoading}
-                        className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        Clear results
-                    </button>
-                </div>
-
-                <p className="text-xs text-slate-500">
-                    Tip: choose an example below to fill the input, then run it manually.
-                </p>
-            </div>
-        </div>
-    );
+export function QueryInputCard({ question, isLoading, examples, onQuestionChange, onSubmit, onClear }: Props) {
+  return <section className="panel">
+    <form onSubmit={event => { event.preventDefault(); onSubmit(); }}>
+      <label htmlFor="question" className="block text-lg font-semibold text-white">What would you like to understand?</label>
+      <p id="question-hint" className="mt-1 text-sm text-slate-400">Ask about revenue, orders, customers or product sales. Revenue includes completed orders.</p>
+      <textarea id="question" aria-describedby="question-hint" maxLength={2000} value={question} disabled={isLoading}
+        onChange={event => onQuestionChange(event.target.value)} placeholder="How did monthly revenue change during 2025?"
+        className="input mt-4 min-h-24" />
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button className="primary" disabled={isLoading || !question.trim()}>{isLoading ? 'Analyzing…' : 'Analyze sales'}</button>
+        <button type="button" className="secondary" disabled={isLoading} onClick={onClear}>Clear results</button>
+        {isLoading && <span role="status" className="text-sm text-slate-400">Interpreting, querying and preparing findings…</span>}
+      </div>
+    </form>
+    <div className="mt-4 flex flex-wrap gap-2" aria-label="Example questions">
+      {examples.map(example => <button key={example.id} className="chip" disabled={isLoading} onClick={() => onQuestionChange(example.question)}>{example.question}</button>)}
+    </div>
+  </section>;
 }

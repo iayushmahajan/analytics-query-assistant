@@ -1,249 +1,93 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./lib/api";
-import type { ExampleItem, HistoryItem, QueryResponse } from "./types/query";
-import { QueryInputCard } from "./components/QueryInputCard";
-import { ExamplePromptsCard } from "./components/ExamplePromptsCard";
-import { QueryStatusCard } from "./components/QueryStatusCard";
-import { ExplanationCard } from "./components/ExplanationCard";
-import { SqlPreviewCard } from "./components/SqlPreviewCard";
-import { ResultsTableCard } from "./components/ResultsTableCard";
-import { HistoryCard } from "./components/HistoryCard";
-
-const initialResult: QueryResponse | null = null;
+import { useEffect, useState } from 'react';
+import { api, errorMessage } from './lib/api';
+import type { ClarificationTurn, ExampleItem, Health, HistoryItem, Metadata, QueryResponse } from './types/query';
+import { QueryInputCard } from './components/QueryInputCard';
+import { HistoryCard } from './components/HistoryCard';
+import { AnalysisResult } from './components/AnalysisResult';
 
 function App() {
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = useState('');
   const [examples, setExamples] = useState<ExampleItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [result, setResult] = useState<QueryResponse | null>(initialResult);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  const resultsSectionRef = useRef<HTMLDivElement | null>(null);
-
-  async function loadExamples() {
-    const response = await api.get<ExampleItem[]>("/examples");
-    setExamples(response.data);
-  }
-
-  async function loadHistory() {
-    const response = await api.get<HistoryItem[]>("/history");
-    setHistory(response.data);
-  }
+  const [metadata, setMetadata] = useState<Metadata | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [result, setResult] = useState<QueryResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [answer, setAnswer] = useState('');
 
   useEffect(() => {
-    void loadExamples();
-    void loadHistory();
+    const controller = new AbortController();
+    const config = { signal: controller.signal };
+    void Promise.allSettled([
+      api.get<ExampleItem[]>('/examples', config), api.get<HistoryItem[]>('/history', config),
+      api.get<Metadata>('/metadata', config), api.get<Health>('/health', { ...config, validateStatus: status => status === 200 || status === 503 }),
+    ]).then(([ex, hist, meta, state]) => {
+      if (controller.signal.aborted) return;
+      if (ex.status === 'fulfilled') setExamples(ex.value.data);
+      if (hist.status === 'fulfilled') setHistory(hist.value.data);
+      if (meta.status === 'fulfilled') setMetadata(meta.value.data);
+      if (state.status === 'fulfilled') setHealth(state.value.data);
+      if ([ex,hist,meta,state].some(item => item.status === 'rejected')) setNotice('Some workspace data could not load. You can retry history below or reload the page.');
+      setInitializing(false);
+    });
+    return () => controller.abort();
   }, []);
 
-  function scrollToResults() {
-    window.setTimeout(() => {
-      resultsSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 120);
+  async function refreshHistory() {
+    try { setHistory((await api.get<HistoryItem[]>('/history')).data); }
+    catch { setNotice('History could not refresh. Your current analysis is still available.'); }
   }
-
-  async function runQuery(customQuestion?: string) {
-    if (isLoading) return;
-
-    const finalQuestion = (customQuestion ?? question).trim();
-    if (!finalQuestion) return;
-
-    setIsLoading(true);
-    setErrorMessage("");
-    setCopied(false);
-
+  async function run(originalQuestion = question, clarification: ClarificationTurn[] = []) {
+    if (busy || !originalQuestion.trim()) return;
+    setBusy(true); setResult(null); setError(''); setNotice(''); setAnswer('');
     try {
-      const response = await api.post<QueryResponse>("/query", {
-        question: finalQuestion,
-      });
-
-      setQuestion(finalQuestion);
+      const response = await api.post<QueryResponse>('/query', { question: originalQuestion.trim(), clarification });
       setResult(response.data);
-      await loadHistory();
-      scrollToResults();
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const detail = error?.response?.data?.detail;
-
-      if (status === 429) {
-        setErrorMessage(
-          "Too many requests. Please wait a moment before trying another query."
-        );
-      } else {
-        setErrorMessage(
-          detail || "Something went wrong while running the query."
-        );
-      }
-
-      scrollToResults();
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err: unknown) { setError(errorMessage(err)); }
+    finally { setBusy(false); }
+    await refreshHistory();
   }
-
-  function clearResults() {
-    setResult(null);
-    setErrorMessage("");
-    setCopied(false);
+  async function restore(item: HistoryItem) {
+    if (busy) return;
+    setBusy(true); setResult(null); setError(''); setNotice(''); setAnswer('');
+    try {
+      const response = await api.get<QueryResponse>(`/history/${item.id}`);
+      setResult(response.data); setQuestion(response.data.question);
+    } catch (err: unknown) { setError(errorMessage(err)); }
+    finally { setBusy(false); }
   }
-
-  async function copySql() {
-    if (!result?.generated_sql) return;
-    await navigator.clipboard.writeText(result.generated_sql);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
-  }
-
-  function selectHistoryItem(item: HistoryItem) {
-    setResult({
-      id: item.id,
-      question: item.question,
-      generated_sql: item.generated_sql,
-      explanation: item.explanation,
-      status: item.status,
-      columns: [],
-      rows: [],
-      row_count: item.row_count ?? 0,
-      execution_time_ms: item.execution_time_ms ?? 0,
-      created_at: item.created_at,
-    });
-    setQuestion(item.question);
-    setErrorMessage("");
-    setCopied(false);
-    scrollToResults();
-  }
-
-  const status = useMemo(() => result?.status, [result]);
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-8 shadow-2xl">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-                Analytics Query Assistant
-              </p>
-              <h1 className="mt-3 text-4xl font-bold tracking-tight text-white">
-                Business questions to validated SQL
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                Ask analytics questions in plain English. The backend generates,
-                validates, and executes safe read-only SQL against your
-                e-commerce database.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Backend
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">FastAPI</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Database
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">PostgreSQL</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Model
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">GPT-4.1</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Status
-                </p>
-                <p className="mt-1 text-sm font-semibold text-emerald-400">
-                  Ready
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
-          <div className="space-y-6">
-            <QueryInputCard
-              question={question}
-              isLoading={isLoading}
-              onQuestionChange={setQuestion}
-              onSubmit={() => void runQuery()}
-              onClear={clearResults}
-            />
-
-            <ExamplePromptsCard
-              examples={examples}
-              isLoading={isLoading}
-              onSelectExample={(value) => {
-                setQuestion(value);
-              }}
-            />
-
-            <div ref={resultsSectionRef} className="space-y-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-slate-400">Results</p>
-                  <h2 className="mt-1 text-2xl font-semibold text-white">
-                    Query output
-                  </h2>
-                </div>
-
-                {result?.created_at && (
-                  <p className="text-xs text-slate-500">
-                    Last updated: {new Date(result.created_at).toLocaleString()}
-                  </p>
-                )}
-              </div>
-
-              {errorMessage && (
-                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                  {errorMessage}
-                </div>
-              )}
-
-              <QueryStatusCard
-                status={status}
-                rowCount={result?.row_count}
-                executionTimeMs={result?.execution_time_ms}
-              />
-
-              <div className="grid gap-6 xl:grid-cols-2">
-                <ExplanationCard explanation={result?.explanation} />
-
-                <SqlPreviewCard
-                  sql={result?.generated_sql}
-                  copied={copied}
-                  onCopy={() => void copySql()}
-                />
-              </div>
-
-              <ResultsTableCard
-                columns={result?.columns ?? []}
-                rows={result?.rows ?? []}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <HistoryCard
-              history={history}
-              isLoading={isLoading}
-              onRefresh={() => void loadHistory()}
-              onSelectHistoryItem={selectHistoryItem}
-            />
-          </div>
-        </div>
+  const clarificationQuestion = result?.plan?.clarification_question;
+  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
+    <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-400">Analytics Query Assistant</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Sales, understood.</h1><p className="mt-2 text-sm text-slate-400">Explore your data. See the reasoning. Inspect the evidence.</p></div>
+      <span role="status" className="badge">{initializing ? 'Checking services…' : health?.status === 'ok' ? 'Services available · AI configured' : 'Service attention needed'}</span>
+    </header>
+    <section aria-label="Dataset context" className="mb-5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-slate-800 bg-slate-900/50 px-5 py-3 text-sm text-slate-300">
+      <strong>{metadata?.name ?? 'Sales dataset'}</strong><span className="text-amber-200">Synthetic demo data</span><span>{metadata?.currency ?? 'EUR'}</span>
+      <span>{metadata?.date_start && metadata.date_end ? `${metadata.date_start} — ${metadata.date_end}` : 'Date coverage unavailable'}</span>
+      {metadata && <span>{metadata.order_count.toLocaleString()} orders</span>}
+    </section>
+    <div className="space-y-5">
+      <QueryInputCard question={question} examples={examples} isLoading={busy} onQuestionChange={setQuestion} onSubmit={() => void run()} onClear={() => { setResult(null); setError(''); setAnswer(''); }}/>
+      {notice && <p role="status" className="rounded-xl border border-amber-800 bg-amber-950/30 p-4 text-sm text-amber-200">{notice}</p>}
+      {error && <p role="alert" className="rounded-xl border border-red-800 bg-red-950/30 p-4 text-sm text-red-200">{error}</p>}
+      <div aria-live="polite" aria-busy={busy}>
+        {result?.status === 'needs_clarification' && <section className="panel border-amber-700" aria-label="Clarification required"><h2 className="text-lg font-semibold">One detail before we query</h2><p className="mt-2 text-slate-300">{clarificationQuestion}</p>
+          <p className="mt-1 text-xs text-slate-400">Original question: {result.question} · No SQL has been executed.</p>
+          {result.clarification.length >= 3 ? <p className="mt-4 text-amber-200">Please start a new question with the details gathered so far.</p> :
+          <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={event => { event.preventDefault(); if (clarificationQuestion) void run(result.question, [...result.clarification, { question: clarificationQuestion, answer }]); }}>
+            <label className="sr-only" htmlFor="clarification">Your clarification</label><input id="clarification" className="input" value={answer} onChange={event => setAnswer(event.target.value)} maxLength={2000}/><button className="primary shrink-0" disabled={busy || !answer.trim()}>Continue analysis</button>
+          </form>}
+        </section>}
+        {(result?.status === 'blocked' || result?.status === 'failed') && <section role="alert" className="panel border-amber-700"><h2 className="font-semibold">{result.status === 'blocked' ? 'Request not executed' : 'Analysis unavailable'}</h2><p className="mt-2 text-slate-300">{result.error?.message ?? result.plan?.explanation}</p></section>}
+        {result?.status === 'success' && <AnalysisResult key={result.request_id} result={result} onFollowUp={setQuestion} disabled={busy}/>}
       </div>
+      <HistoryCard history={history} isLoading={busy} onRefresh={() => void refreshHistory()} onSelectHistoryItem={item => void restore(item)}/>
     </div>
-  );
+    <footer className="mt-8 text-xs leading-relaxed text-slate-500">Synthetic sales data · EUR · Shared demonstration workspace, no private accounts. Questions go to the AI provider. Do not enter personal or confidential information.</footer>
+  </main>;
 }
-
 export default App;

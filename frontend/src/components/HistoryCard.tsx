@@ -1,84 +1,16 @@
-import type { HistoryItem } from "../types/query";
+import type { HistoryItem } from '../types/query';
 
-type HistoryCardProps = {
-    history: HistoryItem[];
-    isLoading: boolean;
-    onRefresh: () => void;
-    onSelectHistoryItem: (item: HistoryItem) => void;
-};
-
-function getStatusClasses(status: string) {
-    switch (status) {
-        case "validated":
-            return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-        case "blocked":
-            return "bg-red-500/15 text-red-300 border-red-500/30";
-        case "execution_failed":
-            return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-        default:
-            return "bg-slate-500/15 text-slate-300 border-slate-500/30";
-    }
-}
-
-export function HistoryCard({
-    history,
-    isLoading,
-    onRefresh,
-    onSelectHistoryItem,
-}: HistoryCardProps) {
-    return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                    <p className="text-sm font-medium text-slate-400">Recent activity</p>
-                    <h2 className="mt-1 text-lg font-semibold text-white">Query history</h2>
-                </div>
-
-                <button
-                    onClick={onRefresh}
-                    disabled={isLoading}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    Refresh
-                </button>
-            </div>
-
-            <div className="space-y-3">
-                {history.length === 0 ? (
-                    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
-                        No query history yet.
-                    </div>
-                ) : (
-                    history.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => onSelectHistoryItem(item)}
-                            className="w-full rounded-xl border border-slate-800 bg-slate-950 p-4 text-left transition hover:border-blue-500 hover:bg-slate-900"
-                        >
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                                <span
-                                    className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${getStatusClasses(
-                                        item.status
-                                    )}`}
-                                >
-                                    {item.status}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                    {item.execution_time_ms ?? 0} ms
-                                </span>
-                            </div>
-
-                            <p className="text-sm font-medium text-slate-100">
-                                {item.question}
-                            </p>
-
-                            <p className="mt-2 text-xs text-slate-500">
-                                Rows: {item.row_count ?? 0}
-                            </p>
-                        </button>
-                    ))
-                )}
-            </div>
-        </div>
-    );
+type Props = { history: HistoryItem[]; isLoading: boolean; onRefresh: () => void; onSelectHistoryItem: (item: HistoryItem) => void };
+export function HistoryCard({ history, isLoading, onRefresh, onSelectHistoryItem }: Props) {
+  return <details className="panel">
+    <summary className="cursor-pointer font-semibold text-white">Recent analyses <span className="ml-2 text-sm font-normal text-slate-400">{history.length} saved · shared demo history</span></summary>
+    <button className="secondary my-4" disabled={isLoading} onClick={onRefresh}>Refresh history</button>
+    {history.length === 0 ? <p className="text-sm text-slate-400">No saved analyses yet.</p> :
+      <ul className="grid gap-2 md:grid-cols-2">{history.map(item => <li key={item.id}>
+        <button disabled={isLoading} onClick={() => onSelectHistoryItem(item)} className="w-full rounded-xl border border-slate-700 p-3 text-left hover:border-teal-400 disabled:opacity-50">
+          <span className="block text-sm text-slate-100">{item.question}</span>
+          <span className="mt-1 block text-xs text-slate-400">{item.status.replaceAll('_', ' ')} · {item.row_count ?? 0} rows · {new Date(item.created_at).toLocaleDateString()}</span>
+        </button>
+      </li>)}</ul>}
+  </details>;
 }

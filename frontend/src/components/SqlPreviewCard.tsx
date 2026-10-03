@@ -1,32 +1,14 @@
-type SqlPreviewCardProps = {
-    sql?: string;
-    copied: boolean;
-    onCopy: () => void;
-};
+import { useState } from 'react';
 
-export function SqlPreviewCard({ sql, copied, onCopy }: SqlPreviewCardProps) {
-    return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                    <p className="text-sm font-medium text-slate-400">Generated SQL</p>
-                    <h2 className="mt-1 text-lg font-semibold text-white">SQL preview</h2>
-                </div>
-
-                <button
-                    onClick={onCopy}
-                    disabled={!sql}
-                    className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    {copied ? "Copied" : "Copy SQL"}
-                </button>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4">
-                <pre className="whitespace-pre-wrap break-words text-sm leading-7 text-emerald-300">
-                    {sql || "SQL will appear here after running a query"}
-                </pre>
-            </div>
-        </div>
-    );
+export function SqlPreviewCard({ sql }: { sql: string }) {
+  const [notice, setNotice] = useState('');
+  async function copy() {
+    try { await navigator.clipboard.writeText(sql); setNotice('SQL copied.'); }
+    catch { setNotice('Clipboard unavailable. Select and copy the SQL below.'); }
+  }
+  return <details className="panel">
+    <summary className="cursor-pointer font-semibold">Inspect SQL</summary>
+    <div className="my-3 flex items-center gap-3"><button className="secondary" onClick={() => void copy()}>Copy SQL</button><span role="status" className="text-sm text-slate-400">{notice}</span></div>
+    <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-sm leading-6 text-teal-200"><code>{sql}</code></pre>
+  </details>;
 }
