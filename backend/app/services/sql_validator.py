@@ -10,7 +10,7 @@ from app.constants.allowed_tables import ALLOWED_TABLES
 from app.core.config import settings
 
 SAFE_FUNCTIONS = {
-    "SUM", "COUNT", "AVG", "MIN", "MAX", "ROUND", "ABS", "CEIL", "FLOOR",
+    "EXISTS", "SUM", "COUNT", "AVG", "MIN", "MAX", "ROUND", "ABS", "CEIL", "FLOOR",
     "COALESCE", "NULLIF", "CAST", "EXTRACT", "TIMESTAMP_TRUNC", "DATE_TRUNC",
     "CURRENT_DATE", "CURRENT_TIMESTAMP", "LOWER", "UPPER", "TRIM", "LENGTH",
     "SUBSTRING", "CONCAT", "CASE", "IF", "ROW_NUMBER", "RANK", "DENSE_RANK",

@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.core.analytics_security import reader_is_restricted
 from app.core.config import settings
 from app.core.db import analytics_engine
 from app.services.sql_validator import ValidatedSQL
@@ -36,11 +37,13 @@ def execute_select_sql(query: ValidatedSQL) -> dict:
         with analytics_engine.connect() as connection:
             with connection.begin():
                 connection.execute(text("SET TRANSACTION READ ONLY"))
+                if not reader_is_restricted(connection):
+                    raise ValueError("Analytics role is not restricted")
                 connection.execute(text("SELECT set_config('statement_timeout', :timeout, true)"), {"timeout": str(settings.SQL_STATEMENT_TIMEOUT_MS)})
                 connection.execute(text("SET LOCAL search_path = pg_catalog, public"))
                 result = connection.execute(text(query.sql))
                 columns = list(result.keys())
-                if len(columns) > 40 or len(set(columns)) != len(columns):
+                if any(len(c) > 64 for c in columns) or len(columns) > 40 or len(set(columns)) != len(columns):
                     raise ValueError("Result needs at most 40 uniquely named columns")
                 rows = [[serialize_value(v) for v in row] for row in result.fetchmany(settings.MAX_SQL_ROWS + 1)]
                 if len(rows) > settings.MAX_SQL_ROWS:

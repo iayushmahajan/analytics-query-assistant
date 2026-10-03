@@ -1,14 +1,16 @@
+import argparse
 import random
-from datetime import date, timedelta
+from datetime import datetime
 from decimal import Decimal
 
 from faker import Faker
 from sqlalchemy import text
 
-from app.core.db import SessionLocal, engine
-from app.models import Base, Category, Country, Customer, Order, OrderItem, Product
+from app.core.db import SessionLocal
+from app.models import Category, Country, Customer, Order, OrderItem, Product
 
 fake = Faker()
+SEED = 2026
 
 
 COUNTRIES = [
@@ -73,11 +75,6 @@ PRODUCTS = {
 ORDER_STATUSES = ["pending", "completed", "cancelled"]
 
 
-def reset_database() -> None:
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-
-
 def seed_countries(session):
     countries = [Country(**country_data) for country_data in COUNTRIES]
     session.add_all(countries)
@@ -111,7 +108,7 @@ def seed_categories_and_products(session):
 def seed_customers(session, countries):
     customers = []
 
-    for _ in range(40):
+    for _ in range(250):
         country = random.choice(countries)
         full_name = fake.name()
         email = fake.unique.email()
@@ -120,7 +117,7 @@ def seed_customers(session, countries):
             full_name=full_name,
             email=email,
             country_id=country.id,
-            created_at=fake.date_time_between(start_date="-2y", end_date="now"),
+            created_at=fake.date_time_between(start_date=datetime(2023, 1, 1), end_date=datetime(2024, 1, 1)),
         )
         session.add(customer)
         customers.append(customer)
@@ -141,7 +138,7 @@ def seed_orders(session, customers, products):
     orders_created = 0
 
     for customer in customers:
-        order_count = random.randint(1, 6)
+        order_count = random.randint(4, 12)
 
         for _ in range(order_count):
             status = random.choices(
@@ -150,7 +147,7 @@ def seed_orders(session, customers, products):
                 k=1
             )[0]
 
-            order_date = fake.date_between(start_date="-18m", end_date="today")
+            order_date = fake.date_between(start_date=datetime(2024, 1, 1).date(), end_date=datetime(2025, 12, 31).date())
 
             selected_products = random.sample(products, k=random.randint(1, 4))
             item_payloads = []
@@ -207,23 +204,28 @@ def print_summary(session):
         print(f"- {table}: {count}")
 
 
+def seed_demo(session, reset=False):
+    random.seed(SEED)
+    fake.seed_instance(SEED)
+    fake.unique.clear()
+    if session.query(Country).first() and not reset:
+        raise ValueError("Data already exists. Use --reset-demo only for disposable demo data.")
+    if reset:
+        session.execute(text("TRUNCATE query_history, order_items, orders, products, customers, categories, countries RESTART IDENTITY CASCADE"))
+        session.commit()
+    countries = seed_countries(session)
+    _, products = seed_categories_and_products(session)
+    customers = seed_customers(session, countries)
+    seed_orders(session, customers, products)
+
+
 def main():
-    print("Resetting database and seeding sample data...")
-    reset_database()
-
-    session = SessionLocal()
-
-    try:
-        countries = seed_countries(session)
-        _, products = seed_categories_and_products(session)
-        customers = seed_customers(session, countries)
-        orders_count = seed_orders(session, customers, products)
-
+    parser = argparse.ArgumentParser(description="Development/demo data only. Never run against real business data.")
+    parser.add_argument("--reset-demo", action="store_true", help="DELETE all demo business data and history before seeding")
+    args = parser.parse_args()
+    with SessionLocal() as session:
+        seed_demo(session, reset=args.reset_demo)
         print_summary(session)
-        print(f"\nOrders created: {orders_count}")
-        print("Seeding completed successfully.")
-    finally:
-        session.close()
 
 
 if __name__ == "__main__":

@@ -10,8 +10,6 @@ Table: countries
 
 Table: customers
 - id
-- full_name
-- email
 - country_id
 - created_at
 

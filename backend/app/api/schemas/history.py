@@ -1,18 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class HistoryItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     question: str
-    generated_sql: str
-    explanation: str
     status: str
     row_count: int | None
-    execution_time_ms: int | None
     created_at: datetime
-
-    model_config = {
-        "from_attributes": True
-    }
