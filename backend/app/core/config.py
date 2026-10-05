@@ -30,12 +30,10 @@ class Settings:
 
     QUERY_HISTORY_LIMIT: int = int(os.getenv("QUERY_HISTORY_LIMIT", "20"))
 
-    GITHUB_MODELS_API_KEY: str = os.getenv("GITHUB_MODELS_API_KEY", "")
-    GITHUB_MODELS_API_URL: str = os.getenv(
-        "GITHUB_MODELS_API_URL",
-        "https://models.github.ai/inference/chat/completions",
-    )
-    GITHUB_MODELS_NAME: str = os.getenv("GITHUB_MODELS_NAME", "openai/gpt-4.1")
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "foundry_local")
+    AI_API_URL: str = os.getenv("AI_API_URL", "")
+    AI_MODEL: str = os.getenv("AI_MODEL", "phi-4-mini")
+    AI_REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "120"))
 
     MAX_SQL_ROWS: int = int(os.getenv("MAX_SQL_ROWS", "100"))
 
@@ -62,3 +60,7 @@ if not (1 <= settings.ANALYSIS_MAX_ROWS <= 100 and 1000 <= settings.ANALYSIS_MAX
 
 if not (1000 <= settings.MAX_RESULT_BYTES <= 1000000 and 1 <= settings.QUERY_HISTORY_LIMIT <= 100):
     raise ValueError("Invalid result snapshot or history limit")
+if settings.AI_PROVIDER != "foundry_local":
+    raise ValueError("AI_PROVIDER must be foundry_local")
+if not (10 <= settings.AI_REQUEST_TIMEOUT_SECONDS <= 600):
+    raise ValueError("AI_REQUEST_TIMEOUT_SECONDS must be between 10 and 600")

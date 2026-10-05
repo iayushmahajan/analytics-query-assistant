@@ -34,6 +34,39 @@ def test_provider_status_mapping(status, code, monkeypatch):
     assert "secret" not in str(error.value)
 
 
+def test_foundry_local_request_and_fenced_json(monkeypatch):
+    content = """```json
+{"status":"blocked","interpretation":"Unsafe request","explanation":"Not allowed"}
+```"""
+    post = Mock(return_value=httpx.Response(200, json={"choices": [{"message": {"content": content}}]}))
+    monkeypatch.setattr(httpx.Client, "post", post)
+
+    plan = sql_generator.generate_query_plan(QueryRequest(question="Delete orders"))
+
+    assert plan.status == "blocked"
+    assert post.call_args.args == (settings.AI_API_URL,)
+    request = post.call_args.kwargs
+    assert "headers" not in request
+    assert request["json"]["model"] == "phi-4-mini"
+    assert "response_format" not in request["json"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'Here is JSON: {"status":"blocked"}',
+        '```json\n{"status":"blocked"}\n``` trailing text',
+        '```json\n[{"status":"blocked"}]\n```',
+    ],
+)
+def test_json_extraction_rejects_prose_and_non_objects(content, monkeypatch):
+    response = httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+    monkeypatch.setattr(httpx.Client, "post", Mock(return_value=response))
+    with pytest.raises(sql_generator.ProviderError) as error:
+        sql_generator.generate_query_plan(QueryRequest(question="Revenue"))
+    assert error.value.code == "invalid_model_output"
+
+
 def test_plan_types_and_gating():
     with pytest.raises(ValidationError):
         QueryPlan(

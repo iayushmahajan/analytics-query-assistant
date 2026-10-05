@@ -15,7 +15,7 @@ Final verification: 5 October 2026. All database checks used disposable database
 | Backend production/test and frontend Docker builds | Passed |
 | Compose configuration, migrations, startup, service health | Passed |
 | Nginx → API → mock provider HTTP → PostgreSQL smoke | Passed |
-| Live GitHub Models smoke | **Failed: JSON decoding**, safely returned `invalid_model_output` / HTTP 502 |
+| Retired provider smoke before the Foundry Local migration | **Failed: JSON decoding**, safely returned `invalid_model_output` / HTTP 502 |
 | Live 18-case model evaluation | Not run |
 | Remote GitHub Actions execution | Not run; changes were not pushed |
 
@@ -23,7 +23,7 @@ Backend checks cover AST bypass attempts, clarification execution gating, typed 
 
 Browser tests use mocked API responses. The separate container smoke used a local deterministic HTTP provider and real PostgreSQL data, including 1,975 seeded orders. Its completed-revenue query returned **EUR 656,582.37**. It checked health, metadata, proxied Swagger/OpenAPI, both provider stages, snapshot restoration, clarification continuation and unsafe SQL rejection. The provider's ready SQL intentionally omitted the completed-status predicate so the application policy had to enforce it.
 
-Two explicitly authorized live synthetic-data requests were attempted. Generation failed before SQL execution or findings generation; the diagnostic request identified `JSONDecodeError`. No raw response or credential was logged, and the evidence does not establish whether the provider envelope or embedded content caused the decoding failure. A successful live provider round trip remains unverified. The parser was not relaxed to hide this failure.
+Before the Foundry Local migration, two explicitly authorized live synthetic-data requests to the retired provider were attempted. Generation failed before SQL execution or findings generation; the diagnostic request identified `JSONDecodeError`. No raw response or credential was logged. This historical result does not verify Foundry Local inference.
 
 ## Commands
 

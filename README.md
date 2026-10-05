@@ -38,7 +38,7 @@ The existing architecture remains a React application and a small FastAPI servic
 |---|---|
 | Frontend | React 19, strict TypeScript, Vite 8, Tailwind 3, Axios, Recharts |
 | Backend | Python 3.11, FastAPI, Pydantic 2, SQLAlchemy, HTTPX |
-| AI | GitHub Models chat completions, default `openai/gpt-4.1` |
+| AI | Microsoft Foundry Local OpenAI-compatible chat completions, default `phi-4-mini` |
 | Database | PostgreSQL 16, psycopg2, Alembic |
 | Quality | pytest, Ruff, Vitest, Testing Library, Playwright, GitHub Actions |
 | Deployment | Docker Compose, Uvicorn, multi-stage frontend build served by Nginx |
@@ -49,7 +49,7 @@ Requires Docker with Compose. Preserve an existing `.env`; merge missing setting
 
 ```bash
 cp .env.example .env  # only for a new installation
-# Edit .env: set three distinct URL-safe database passwords and GITHUB_MODELS_API_KEY.
+# Edit .env: set three distinct URL-safe database passwords and the Foundry Local AI_API_URL.
 # Generate each password with: openssl rand -hex 24
 
 docker compose up --build -d
@@ -58,9 +58,51 @@ docker compose run --rm backend python -m app.scripts.seed
 
 Open **http://localhost:5173**. The API is proxied under `/api`; OpenAPI documentation is at `/api/docs` (the interactive schema is available at `/api/openapi.json`). Database and backend ports are not published by default.
 
-The migration service waits for PostgreSQL, upgrades the schema and applies reader grants. The normal application does not create, drop or seed tables. A new database is empty until the explicit seed command runs. Missing AI credentials are reported as degraded health; metadata/history still work, while analysis requests return a clear configuration error.
+The migration service waits for PostgreSQL, upgrades the schema and applies reader grants. The normal application does not create, drop or seed tables. A new database is empty until the explicit seed command runs. A missing AI endpoint is reported as degraded health; metadata/history still work, while analysis requests return a clear configuration error.
 
 The default seed contains 250 customers, 24 products, eight countries and roughly 2,000 orders over **2024–2025**, plus their line items. For meaningful time charts, ask for 2025 rather than the current year. Dates and monetary totals are deterministic. All customer registrations precede orders. There are no refunds, taxes, discounts or currency conversions.
+
+### Foundry Local host setup
+
+The backend uses Foundry Local's OpenAI-compatible `POST /v1/chat/completions` endpoint. Running Foundry Local on Windows is recommended when the application runs in Docker Desktop because the container can address it through `host.docker.internal`, and the Windows package can use Windows ML acceleration. In PowerShell:
+
+```powershell
+winget install Microsoft.FoundryLocal
+foundry --version
+foundry model download phi-4-mini
+foundry server start --idle-timeout 0
+foundry model load phi-4-mini
+foundry server status
+```
+
+`foundry server status` prints the current service URL; the port may be dynamic. Append `/v1/chat/completions` to that URL. For this Docker Compose setup, replace only `localhost` or `127.0.0.1` with `host.docker.internal` when setting `AI_API_URL`. For example, if status reports `http://127.0.0.1:54321`, use:
+
+```dotenv
+AI_PROVIDER=foundry_local
+AI_MODEL=phi-4-mini
+AI_API_URL=http://host.docker.internal:54321/v1/chat/completions
+```
+
+For a backend running directly in WSL or Windows, use the reachable host name with the same reported port; `localhost` is appropriate when the backend and Foundry Local share the Windows host. No inference API key or Azure subscription is required. If the server port changes, update `AI_API_URL` and recreate the backend container with `docker compose up -d --force-recreate backend`. See Microsoft's [Foundry Local CLI guide](https://learn.microsoft.com/en-us/azure/foundry-local/how-to/how-to-use-foundry-local-cli) and [REST reference](https://learn.microsoft.com/en-us/azure/foundry-local/reference/reference-rest).
+
+Foundry Local also provides a Linux x64 CLI that can run directly in WSL/Ubuntu. The current preview release can be installed without modifying the project:
+
+```bash
+mkdir -p ~/.local/share/foundry-local
+cd ~/.local/share/foundry-local
+curl -fLO https://github.com/microsoft/Foundry-Local/releases/download/cli-preview-0.10.3/foundry-0.10.3-linux-x64.tar.gz
+tar xzf foundry-0.10.3-linux-x64.tar.gz
+chmod 0755 foundry-0.10.3-linux-x64/lib/foundry foundry-0.10.3-linux-x64/lib/foundrylocald
+mkdir -p ~/.local/bin
+ln -s ~/.local/share/foundry-local/foundry-0.10.3-linux-x64/lib/foundry ~/.local/bin/foundry
+foundry --version
+foundry model download phi-4-mini
+foundry server start --idle-timeout 0
+foundry model load phi-4-mini
+foundry server status
+```
+
+Ubuntu normally includes `~/.local/bin` in the shell `PATH`; add it if your shell does not. When the FastAPI backend also runs directly in WSL, set `AI_API_URL` to the reported loopback URL plus `/v1/chat/completions`. A Docker container may not be able to reach a server bound only to the WSL loopback interface; use the Windows-host setup above for the documented Docker Compose path unless `foundry server start --help` in your installed release exposes a suitable network binding and you explicitly configure it.
 
 **Destructive demo reset, only for disposable data:**
 
@@ -81,9 +123,10 @@ See [`.env.example`](.env.example). Never commit populated environment files.
 | `ANALYTICS_DB_PASSWORD` | Restricted reader password; Compose only |
 | `DATABASE_URL` | Application writes and migrations; direct/local development |
 | `ANALYTICS_DATABASE_URL` | Restricted analytics connection; direct/local development |
-| `GITHUB_MODELS_API_KEY` | Provider credential, backend only |
-| `GITHUB_MODELS_NAME` | `openai/gpt-4.1` |
-| `GITHUB_MODELS_API_URL` | GitHub Models chat-completions endpoint |
+| `AI_PROVIDER` | `foundry_local`; currently the only implemented provider |
+| `AI_MODEL` | Foundry Local alias/model ID; default `phi-4-mini` |
+| `AI_API_URL` | Full local endpoint including `/v1/chat/completions`; required |
+| `AI_REQUEST_TIMEOUT_SECONDS` | Local inference timeout; default 120, permitted 10–600 |
 | `MAX_SQL_ROWS` | 100; permitted configuration 1–1,000 |
 | `SQL_STATEMENT_TIMEOUT_MS` | 5,000; permitted configuration 100–30,000 |
 | `MAX_RESULT_BYTES` | 200,000 for serialized result rows |
@@ -159,7 +202,7 @@ The role/grant setup assumes a dedicated demonstration database with no untruste
 
 ## AI findings and privacy
 
-Generation and result analysis both require validated Pydantic JSON contracts. Provider outages, malformed JSON, rate limits and timeouts become stable public errors; raw provider/database messages are not returned. Findings failure is a warning on an otherwise successful result.
+Generation and result analysis both require validated Pydantic JSON contracts. Foundry Local responses must contain either one JSON object or one exact JSON code fence; prose and malformed output are rejected. Provider outages, malformed JSON and timeouts become stable public errors; raw provider/database messages are not returned. Findings failure is a warning on an otherwise successful result.
 
 The second stage has **no execution tools**. It receives only the selected metric, currency and a bounded result sample. It receives no original question, raw SQL or free-text plan. For any query referencing customers, only numeric result columns are shared, with generic labels; customer-related textual dimensions are deliberately omitted. This also limits the specificity of geographic findings. Other business result labels may be shared. Sampling and possible truncation are disclosed.
 
@@ -220,7 +263,7 @@ pytest -q
 
 The 18 cases in [`backend/evals/golden.json`](backend/evals/golden.json) cover revenue, counts, AOV, products, categories, geography, time ranges, status filters, ambiguity and out-of-scope/mutating requests. Each records expected semantics and, where applicable, independently specified numeric results on a six-order fixture. Automated tests execute reference plans against PostgreSQL and compare normalized result sets, not exact SQL strings. This validates the reference semantics and execution pipeline; it **does not measure live model accuracy**.
 
-For a deliberate live model evaluation, load `backend/evals/fixture.sql` **only into an isolated disposable database**, set the application/reader URLs and real provider key, then run:
+For a deliberate live model evaluation, load `backend/evals/fixture.sql` **only into an isolated disposable database**, configure the application/reader URLs and running Foundry Local endpoint, then run:
 
 ```bash
 cd backend
@@ -239,7 +282,7 @@ GitHub Actions runs Python checks plus PostgreSQL integration, frontend lint/typ
 - The fixed function/schema allowlist intentionally rejects unsupported SQL. There is no automatic SQL repair loop or arbitrary database connection/upload support.
 - Snapshot and analysis caps can truncate results; charts describe returned rows, not an unobserved complete population. Charts require one textual/date dimension and one numeric measure; other shapes use tables. KPI cards reflect actual single-row numeric values.
 - History is shared and retained until an explicit demo reset; no authentication, quotas or multi-tenancy. Do not expose it as a private business-data service.
-- Provider readiness is configuration-only. Real provider credentials, quota and model availability must be verified in the deployment environment.
+- Provider readiness is configuration-only. Foundry Local reachability, the loaded model and output quality must be verified on the deployment machine.
 - Tailwind 3's development dependency chain retains an npm advisory for deeply nested glob-pattern denial of service (`braces`). Compatible fixes were applied elsewhere; clearing this remaining build-tool advisory requires a Tailwind major migration. The Nginx runtime ships compiled static assets, not these Node build dependencies. Build only trusted source/configuration.
 
 For the upgrade verification record and environment-specific Docker limitations, see [docs/verification.md](docs/verification.md).

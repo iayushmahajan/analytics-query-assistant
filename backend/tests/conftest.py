@@ -3,7 +3,9 @@ import os
 # Never load the developer's real connection/provider configuration during tests.
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["ANALYTICS_DATABASE_URL"] = "sqlite://"
-os.environ["GITHUB_MODELS_API_KEY"] = "test-only"
+os.environ["AI_PROVIDER"] = "foundry_local"
+os.environ["AI_API_URL"] = "http://provider.test/v1/chat/completions"
+os.environ["AI_MODEL"] = "phi-4-mini"
 
 import pytest
 from fastapi.testclient import TestClient

@@ -18,9 +18,9 @@ def test_health_truthful_and_no_details(client, monkeypatch):
     assert response.json()["status"] == "degraded"
     assert "secret" not in response.text
     monkeypatch.setattr(health, "engine", healthy)
-    monkeypatch.setattr(settings, "GITHUB_MODELS_API_KEY", "")
+    monkeypatch.setattr(settings, "AI_API_URL", "")
     assert client.get("/health").status_code == 503
-    monkeypatch.setattr(settings, "GITHUB_MODELS_API_KEY", "test-only")
+    monkeypatch.setattr(settings, "AI_API_URL", "http://provider.test/v1/chat/completions")
     assert client.get("/health").status_code == 200
     monkeypatch.setattr(health, "reader_is_restricted", lambda connection: False)
     assert client.get("/health").json()["analytics_database"] == "unsafe_role"

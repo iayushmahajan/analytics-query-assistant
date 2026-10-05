@@ -37,9 +37,9 @@ def health_check(response: Response):
             checks[name] = "ok" if restricted else "unsafe_role"
         except SQLAlchemyError:
             checks[name] = "unavailable"
-    checks["provider"] = "configured_not_probed" if settings.GITHUB_MODELS_API_KEY else "not_configured"
+    checks["provider"] = "configured_not_probed" if settings.AI_API_URL else "not_configured"
     healthy = all(checks[x] == "ok" for x in ("application_database", "analytics_database")) and bool(
-        settings.GITHUB_MODELS_API_KEY
+        settings.AI_API_URL
     )
     response.status_code = 200 if healthy else 503
     return HealthResponse(status="ok" if healthy else "degraded", **checks)

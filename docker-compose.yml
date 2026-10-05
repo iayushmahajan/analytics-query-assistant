@@ -29,9 +29,10 @@ services:
     environment:
       DATABASE_URL: postgresql://analytics_app:${APP_DB_PASSWORD}@db:5432/analytics_db
       ANALYTICS_DATABASE_URL: postgresql://analytics_reader:${ANALYTICS_DB_PASSWORD}@db:5432/analytics_db
-      GITHUB_MODELS_API_KEY: ${GITHUB_MODELS_API_KEY:-}
-      GITHUB_MODELS_NAME: ${GITHUB_MODELS_NAME:-openai/gpt-4.1}
-      GITHUB_MODELS_API_URL: ${GITHUB_MODELS_API_URL:-https://models.github.ai/inference/chat/completions}
+      AI_PROVIDER: ${AI_PROVIDER:-foundry_local}
+      AI_MODEL: ${AI_MODEL:-phi-4-mini}
+      AI_API_URL: ${AI_API_URL:-}
+      AI_REQUEST_TIMEOUT_SECONDS: ${AI_REQUEST_TIMEOUT_SECONDS:-120}
       MAX_SQL_ROWS: ${MAX_SQL_ROWS:-100}
       SQL_STATEMENT_TIMEOUT_MS: ${SQL_STATEMENT_TIMEOUT_MS:-5000}
       MAX_RESULT_BYTES: ${MAX_RESULT_BYTES:-200000}
@@ -45,6 +46,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

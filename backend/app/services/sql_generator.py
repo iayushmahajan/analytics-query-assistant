@@ -1,4 +1,5 @@
 import json
+import re
 from typing import TypeVar
 
 import httpx
@@ -18,24 +19,28 @@ class ProviderError(Exception):
         super().__init__(message)
 
 
+def _json_content(content: str) -> str:
+    stripped = content.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped
+    fenced = re.fullmatch(r"```(?:json)?\s*\n?(\{.*\})\s*```", stripped, flags=re.DOTALL | re.IGNORECASE)
+    if fenced:
+        return fenced.group(1)
+    raise ValueError("Expected one JSON object")
+
+
 def structured_completion(messages: list[dict[str, str]], contract: type[T]) -> T:
-    if not settings.GITHUB_MODELS_API_KEY:
+    if not settings.AI_API_URL:
         raise ProviderError("provider_not_configured", "The AI provider is not configured.", 503)
     try:
-        with httpx.Client(timeout=60) as client:
+        with httpx.Client(timeout=settings.AI_REQUEST_TIMEOUT_SECONDS) as client:
             response = client.post(
-                settings.GITHUB_MODELS_API_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.GITHUB_MODELS_API_KEY}",
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
+                settings.AI_API_URL,
                 json={
-                    "model": settings.GITHUB_MODELS_NAME,
+                    "model": settings.AI_MODEL,
                     "messages": messages,
                     "temperature": 0,
                     "max_tokens": 2500,
-                    "response_format": {"type": "json_object"},
                 },
             )
     except httpx.TimeoutException as exc:
@@ -52,7 +57,7 @@ def structured_completion(messages: list[dict[str, str]], contract: type[T]) -> 
         content = response.json()["choices"][0]["message"]["content"]
         if not isinstance(content, str):
             raise ValueError("Expected text")
-        return contract.model_validate_json(content, strict=True)
+        return contract.model_validate_json(_json_content(content), strict=True)
     except (ValueError, TypeError, KeyError, IndexError, ValidationError, json.JSONDecodeError) as exc:
         raise ProviderError(
             "invalid_model_output", "The AI response did not match the required format. Please try again."
