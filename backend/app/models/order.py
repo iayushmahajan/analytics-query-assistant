@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 class Order(Base):
     __tablename__ = "orders"
     __table_args__ = (
-        CheckConstraint("status IN ('pending', 'completed', 'cancelled')", name='ck_order_status'),
-        CheckConstraint('total_amount >= 0', name='ck_order_amount'),
+        CheckConstraint("status IN ('pending', 'completed', 'cancelled')", name="ck_order_status"),
+        CheckConstraint("total_amount >= 0", name="ck_order_amount"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)

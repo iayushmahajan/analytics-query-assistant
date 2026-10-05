@@ -1,4 +1,5 @@
 """Bounded response snapshots and business data constraints."""
+
 import sqlalchemy as sa
 from alembic import op
 

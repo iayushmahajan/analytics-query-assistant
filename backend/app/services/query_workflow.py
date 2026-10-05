@@ -8,19 +8,25 @@ from sqlalchemy.orm import Session
 from app.api.schemas.query import AppError, QueryRequest, QueryResponse
 from app.constants.metrics import METRICS
 from app.models import QueryHistory
+from app.services.metric_policy import prepare_query
 from app.services.result_analysis import analyze_result
 from app.services.sql_executor import SQLExecutionError, execute_select_sql
 from app.services.sql_generator import ProviderError, generate_query_plan
-from app.services.sql_validator import SQLValidationError, validate_sql
+from app.services.sql_validator import SQLValidationError
 
 logger = logging.getLogger(__name__)
 
 
 def persist_response(db: Session, response: QueryResponse) -> None:
-    item = QueryHistory(question=response.question, generated_sql=response.generated_sql,
+    item = QueryHistory(
+        question=response.question,
+        generated_sql=response.generated_sql,
         explanation=response.plan.explanation if response.plan else "Request failed before interpretation.",
-        status=response.status, row_count=response.row_count,
-        execution_time_ms=response.timings.execution_ms, created_at=response.created_at)
+        status=response.status,
+        row_count=response.row_count,
+        execution_time_ms=response.timings.execution_ms,
+        created_at=response.created_at,
+    )
     try:
         db.add(item)
         db.flush()
@@ -36,8 +42,13 @@ def persist_response(db: Session, response: QueryResponse) -> None:
 
 def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[QueryResponse, int]:
     start = time.perf_counter()
-    response = QueryResponse(request_id=request_id, question=payload.question,
-        clarification=payload.clarification, status="failed", created_at=datetime.now(timezone.utc))
+    response = QueryResponse(
+        request_id=request_id,
+        question=payload.question,
+        clarification=payload.clarification,
+        status="failed",
+        created_at=datetime.now(timezone.utc),
+    )
     http_status = 200
     stage = time.perf_counter()
     try:
@@ -48,7 +59,7 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
         if plan.status != "ready":
             response.status = plan.status
         else:
-            validated = validate_sql(plan.sql)
+            validated = prepare_query(plan)
             plan.source_tables = validated.source_tables
             response.generated_sql = validated.sql
             stage = time.perf_counter()
@@ -64,7 +75,9 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
                 response.analysis = analyze_result(plan, result, validated)
             except ProviderError as exc:
                 response.warnings.append("Results are available, but AI findings could not be generated.")
-                logger.warning("analysis_unavailable", extra={"request_id": request_id, "error_code": exc.code})
+                logger.warning(
+                    "analysis_unavailable", extra={"request_id": request_id, "error_code": exc.code}
+                )
             finally:
                 response.timings.analysis_ms = round((time.perf_counter() - stage) * 1000)
     except ProviderError as exc:
@@ -79,6 +92,13 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
         http_status = 504 if exc.code == "query_timeout" else 422
     response.timings.total_ms = round((time.perf_counter() - start) * 1000)
     persist_response(db, response)
-    logger.info("analysis_completed", extra={"request_id": request_id, "status": response.status,
-        "error_code": response.error.code if response.error else None, "timings": response.timings.model_dump()})
+    logger.info(
+        "analysis_completed",
+        extra={
+            "request_id": request_id,
+            "status": response.status,
+            "error_code": response.error.code if response.error else None,
+            "timings": response.timings.model_dump(),
+        },
+    )
     return response, http_status

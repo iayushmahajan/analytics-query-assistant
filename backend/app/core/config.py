@@ -13,13 +13,16 @@ class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "Analytics Query Assistant API")
     APP_ENV: str = os.getenv("APP_ENV", "development")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "")
 
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql://analytics_app@localhost:5432/analytics_db",
     )
 
-    ANALYTICS_DATABASE_URL: str = os.getenv("ANALYTICS_DATABASE_URL", "postgresql://analytics_reader@localhost:5432/analytics_db")
+    ANALYTICS_DATABASE_URL: str = os.getenv(
+        "ANALYTICS_DATABASE_URL", "postgresql://analytics_reader@localhost:5432/analytics_db"
+    )
     SQL_STATEMENT_TIMEOUT_MS: int = int(os.getenv("SQL_STATEMENT_TIMEOUT_MS", "5000"))
     MAX_RESULT_BYTES: int = int(os.getenv("MAX_RESULT_BYTES", "200000"))
     ANALYSIS_MAX_ROWS: int = int(os.getenv("ANALYSIS_MAX_ROWS", "30"))
@@ -56,3 +59,6 @@ if not (100 <= settings.SQL_STATEMENT_TIMEOUT_MS <= 30000):
     raise ValueError("SQL_STATEMENT_TIMEOUT_MS must be between 100 and 30000")
 if not (1 <= settings.ANALYSIS_MAX_ROWS <= 100 and 1000 <= settings.ANALYSIS_MAX_BYTES <= 50000):
     raise ValueError("Invalid analysis context limits")
+
+if not (1000 <= settings.MAX_RESULT_BYTES <= 1000000 and 1 <= settings.QUERY_HISTORY_LIMIT <= 100):
+    raise ValueError("Invalid result snapshot or history limit")

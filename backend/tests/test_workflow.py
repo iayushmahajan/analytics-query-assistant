@@ -12,11 +12,29 @@ from app.services.sql_generator import ProviderError
 
 @pytest.fixture
 def stages(monkeypatch):
-    plan = QueryPlan(status="ready", sql="SELECT SUM(total_amount) AS revenue FROM orders WHERE status='completed'", metric="revenue", interpretation="Completed revenue", explanation="Sum completed order totals")
+    plan = QueryPlan(
+        status="ready",
+        sql="SELECT SUM(total_amount) AS revenue FROM orders WHERE status='completed'",
+        metric="revenue",
+        interpretation="Completed revenue",
+        explanation="Sum completed order totals",
+    )
     generate = Mock(return_value=plan)
-    execute = Mock(return_value={"columns": ["revenue"], "rows": [["123.45"]], "row_count": 1, "execution_time_ms": 2, "possibly_truncated": False})
+    execute = Mock(
+        return_value={
+            "columns": ["revenue"],
+            "rows": [["123.45"]],
+            "row_count": 1,
+            "execution_time_ms": 2,
+            "possibly_truncated": False,
+        }
+    )
     analyze = Mock(return_value=ResultAnalysis(answer="Completed revenue is EUR 123.45."))
-    for name, mock in [("generate_query_plan", generate), ("execute_select_sql", execute), ("analyze_result", analyze)]:
+    for name, mock in [
+        ("generate_query_plan", generate),
+        ("execute_select_sql", execute),
+        ("analyze_result", analyze),
+    ]:
         monkeypatch.setattr(workflow, name, mock)
     return generate, execute, analyze
 
@@ -27,20 +45,37 @@ def test_success_snapshot_restore_and_continuation(client, stages):
     data = result.json()
     assert data["status"] == "success"
     assert data["plan"]["source_tables"] == ["orders"]
-    assert client.get(f'/history/{data["id"]}').json() == data
+    assert client.get(f"/history/{data['id']}").json() == data
     assert client.get("/history").json()[0]["question"] == "Revenue?"
     assert result.headers["x-request-id"] == data["request_id"]
 
 
 def test_clarification_never_executes_and_can_continue(client, stages):
     generate, execute, analyze = stages
-    generate.return_value = QueryPlan(status="needs_clarification", interpretation="Performance is undefined", explanation="Choose a metric", clarification_question="Revenue or order count?")
+    generate.return_value = QueryPlan(
+        status="needs_clarification",
+        interpretation="Performance is undefined",
+        explanation="Choose a metric",
+        clarification_question="Revenue or order count?",
+    )
     data = client.post("/query", json={"question": "Performance?"}).json()
     assert data["status"] == "needs_clarification"
     execute.assert_not_called()
     analyze.assert_not_called()
-    generate.return_value = QueryPlan(status="ready", sql="SELECT COUNT(*) AS orders FROM orders", metric="order_count", interpretation="All orders", explanation="Count orders")
-    result = client.post("/query", json={"question": "Performance?", "clarification": [{"question": "Revenue or order count?", "answer": "Order count"}]})
+    generate.return_value = QueryPlan(
+        status="ready",
+        sql="SELECT COUNT(*) AS orders FROM orders",
+        metric="order_count",
+        interpretation="All orders",
+        explanation="Count orders",
+    )
+    result = client.post(
+        "/query",
+        json={
+            "question": "Performance?",
+            "clarification": [{"question": "Revenue or order count?", "answer": "Order count"}],
+        },
+    )
     assert result.json()["status"] == "success"
     assert generate.call_args.args[0].clarification[0].answer == "Order count"
 
@@ -62,7 +97,15 @@ def test_execution_failure_saved(client, db, stages, code, http):
     stages[2].assert_not_called()
 
 
-@pytest.mark.parametrize("code,http", [("provider_unavailable",503), ("provider_rate_limited",429), ("invalid_model_output",502), ("provider_timeout",504)])
+@pytest.mark.parametrize(
+    "code,http",
+    [
+        ("provider_unavailable", 503),
+        ("provider_rate_limited", 429),
+        ("invalid_model_output", 502),
+        ("provider_timeout", 504),
+    ],
+)
 def test_provider_failure_saved(client, db, stages, code, http):
     stages[0].side_effect = ProviderError(code, "Public error", http)
     result = client.post("/query", json={"question": "Revenue?"})

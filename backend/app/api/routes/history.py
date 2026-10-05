@@ -13,7 +13,12 @@ router = APIRouter(prefix="/history", tags=["history"])
 
 @router.get("", response_model=list[HistoryItem])
 def get_history(db: Session = Depends(get_db)):
-    return db.query(QueryHistory).order_by(desc(QueryHistory.created_at)).limit(settings.QUERY_HISTORY_LIMIT).all()
+    return (
+        db.query(QueryHistory)
+        .order_by(desc(QueryHistory.created_at))
+        .limit(settings.QUERY_HISTORY_LIMIT)
+        .all()
+    )
 
 
 @router.get("/{item_id}", response_model=QueryResponse)

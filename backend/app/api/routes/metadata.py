@@ -26,4 +26,10 @@ class DatasetMetadata(BaseModel):
 def metadata():
     with analytics_engine.connect() as connection:
         row = connection.execute(text("SELECT MIN(order_date), MAX(order_date), COUNT(*) FROM orders")).one()
-    return DatasetMetadata(date_start=row[0], date_end=row[1], order_count=row[2], max_rows=settings.MAX_SQL_ROWS, metrics=list(METRICS.values()))
+    return DatasetMetadata(
+        date_start=row[0],
+        date_end=row[1],
+        order_count=row[2],
+        max_rows=settings.MAX_SQL_ROWS,
+        metrics=list(METRICS.values()),
+    )

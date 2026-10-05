@@ -1,4 +1,5 @@
 """Fail-closed PostgreSQL AST policy. Database permissions are the final boundary."""
+
 from dataclasses import dataclass
 
 import sqlglot
@@ -10,18 +11,76 @@ from app.constants.allowed_tables import ALLOWED_TABLES
 from app.core.config import settings
 
 SAFE_FUNCTIONS = {
-    "EXISTS", "SUM", "COUNT", "AVG", "MIN", "MAX", "ROUND", "ABS", "CEIL", "FLOOR",
-    "COALESCE", "NULLIF", "CAST", "EXTRACT", "TIMESTAMP_TRUNC", "DATE_TRUNC",
-    "CURRENT_DATE", "CURRENT_TIMESTAMP", "LOWER", "UPPER", "TRIM", "LENGTH",
-    "SUBSTRING", "CONCAT", "CASE", "IF", "ROW_NUMBER", "RANK", "DENSE_RANK",
-    "LAG", "LEAD", "FIRST_VALUE", "LAST_VALUE", "GREATEST", "LEAST",
-    "STDDEV", "STDDEV_POP", "STDDEV_SAMP", "VARIANCE", "VAR_POP",
+    "AND",
+    "OR",
+    "EXISTS",
+    "SUM",
+    "COUNT",
+    "AVG",
+    "MIN",
+    "MAX",
+    "ROUND",
+    "ABS",
+    "CEIL",
+    "FLOOR",
+    "COALESCE",
+    "NULLIF",
+    "CAST",
+    "EXTRACT",
+    "TIMESTAMP_TRUNC",
+    "DATE_TRUNC",
+    "CURRENT_DATE",
+    "CURRENT_TIMESTAMP",
+    "LOWER",
+    "UPPER",
+    "TRIM",
+    "LENGTH",
+    "SUBSTRING",
+    "CONCAT",
+    "CASE",
+    "IF",
+    "ROW_NUMBER",
+    "RANK",
+    "DENSE_RANK",
+    "LAG",
+    "LEAD",
+    "FIRST_VALUE",
+    "LAST_VALUE",
+    "GREATEST",
+    "LEAST",
+    "STDDEV",
+    "STDDEV_POP",
+    "STDDEV_SAMP",
+    "VARIANCE",
+    "VAR_POP",
 }
 FORBIDDEN_NODES = {
-    "Insert", "Update", "Delete", "Drop", "Alter", "Create", "TruncateTable",
-    "Merge", "Copy", "Command", "Transaction", "Commit", "Rollback", "Into",
-    "Lock", "Set", "Use", "Grant", "Revoke", "Execute", "Parameter",
-    "Placeholder", "TableSample", "Pivot", "Unpivot", "Lateral",
+    "Insert",
+    "Update",
+    "Delete",
+    "Drop",
+    "Alter",
+    "Create",
+    "TruncateTable",
+    "Merge",
+    "Copy",
+    "Command",
+    "Transaction",
+    "Commit",
+    "Rollback",
+    "Into",
+    "Lock",
+    "Set",
+    "Use",
+    "Grant",
+    "Revoke",
+    "Execute",
+    "Parameter",
+    "Placeholder",
+    "TableSample",
+    "Pivot",
+    "Unpivot",
+    "Lateral",
 }
 
 
@@ -41,7 +100,9 @@ def validate_sql(sql: str) -> ValidatedSQL:
         raise SQLValidationError("SQL must be nonempty and within the size limit.")
     try:
         statements = [x for x in sqlglot.parse(sql, read="postgres") if x is not None]
-        if len(statements) != 1 or not isinstance(statements[0], (exp.Select, exp.Union, exp.Intersect, exp.Except)):
+        if len(statements) != 1 or not isinstance(
+            statements[0], (exp.Select, exp.Union, exp.Intersect, exp.Except)
+        ):
             raise SQLValidationError("Only one read-only analytical query is allowed.")
         tree = statements[0]
         if sum(1 for _ in tree.walk()) > 1500:
@@ -58,8 +119,16 @@ def validate_sql(sql: str) -> ValidatedSQL:
                     raise SQLValidationError("Qualified functions are not permitted.")
             if isinstance(node, exp.Cast):
                 if node.to.sql(dialect="postgres").upper() not in {
-                    "DATE", "TIMESTAMP", "TIMESTAMPTZ", "TEXT", "INT", "BIGINT",
-                    "DOUBLE PRECISION", "FLOAT", "DECIMAL", "BOOLEAN",
+                    "DATE",
+                    "TIMESTAMP",
+                    "TIMESTAMPTZ",
+                    "TEXT",
+                    "INT",
+                    "BIGINT",
+                    "DOUBLE PRECISION",
+                    "FLOAT",
+                    "DECIMAL",
+                    "BOOLEAN",
                 }:
                     raise SQLValidationError("This cast type is not permitted.")
         tables = set()
@@ -82,7 +151,9 @@ def validate_sql(sql: str) -> ValidatedSQL:
         if cap < 0:
             raise SQLValidationError("LIMIT must be nonnegative.")
         tree = tree.limit(cap)
-        return ValidatedSQL(tree.sql(dialect="postgres", pretty=True, comments=False), sorted(tables), "customers" in tables)
+        return ValidatedSQL(
+            tree.sql(dialect="postgres", pretty=True, comments=False), sorted(tables), "customers" in tables
+        )
     except (SqlglotError, ValueError, RecursionError) as exc:
         raise SQLValidationError("SQL could not be validated.") from exc
 

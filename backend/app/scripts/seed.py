@@ -141,13 +141,11 @@ def seed_orders(session, customers, products):
         order_count = random.randint(4, 12)
 
         for _ in range(order_count):
-            status = random.choices(
-                ORDER_STATUSES,
-                weights=[15, 75, 10],
-                k=1
-            )[0]
+            status = random.choices(ORDER_STATUSES, weights=[15, 75, 10], k=1)[0]
 
-            order_date = fake.date_between(start_date=datetime(2024, 1, 1).date(), end_date=datetime(2025, 12, 31).date())
+            order_date = fake.date_between(
+                start_date=datetime(2024, 1, 1).date(), end_date=datetime(2025, 12, 31).date()
+            )
 
             selected_products = random.sample(products, k=random.randint(1, 4))
             item_payloads = []
@@ -211,7 +209,11 @@ def seed_demo(session, reset=False):
     if session.query(Country).first() and not reset:
         raise ValueError("Data already exists. Use --reset-demo only for disposable demo data.")
     if reset:
-        session.execute(text("TRUNCATE query_history, order_items, orders, products, customers, categories, countries RESTART IDENTITY CASCADE"))
+        session.execute(
+            text(
+                "TRUNCATE query_history, order_items, orders, products, customers, categories, countries RESTART IDENTITY CASCADE"
+            )
+        )
         session.commit()
     countries = seed_countries(session)
     _, products = seed_categories_and_products(session)
@@ -220,8 +222,12 @@ def seed_demo(session, reset=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Development/demo data only. Never run against real business data.")
-    parser.add_argument("--reset-demo", action="store_true", help="DELETE all demo business data and history before seeding")
+    parser = argparse.ArgumentParser(
+        description="Development/demo data only. Never run against real business data."
+    )
+    parser.add_argument(
+        "--reset-demo", action="store_true", help="DELETE all demo business data and history before seeding"
+    )
     args = parser.parse_args()
     with SessionLocal() as session:
         seed_demo(session, reset=args.reset_demo)

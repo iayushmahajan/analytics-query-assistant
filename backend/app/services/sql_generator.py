@@ -23,12 +23,21 @@ def structured_completion(messages: list[dict[str, str]], contract: type[T]) -> 
         raise ProviderError("provider_not_configured", "The AI provider is not configured.", 503)
     try:
         with httpx.Client(timeout=60) as client:
-            response = client.post(settings.GITHUB_MODELS_API_URL,
-                headers={"Authorization": f"Bearer {settings.GITHUB_MODELS_API_KEY}",
-                         "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"},
-                json={"model": settings.GITHUB_MODELS_NAME, "messages": messages,
-                      "temperature": 0, "max_tokens": 2500,
-                      "response_format": {"type": "json_object"}})
+            response = client.post(
+                settings.GITHUB_MODELS_API_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.GITHUB_MODELS_API_KEY}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+                json={
+                    "model": settings.GITHUB_MODELS_NAME,
+                    "messages": messages,
+                    "temperature": 0,
+                    "max_tokens": 2500,
+                    "response_format": {"type": "json_object"},
+                },
+            )
     except httpx.TimeoutException as exc:
         raise ProviderError("provider_timeout", "The AI provider timed out. Please try again.", 504) from exc
     except httpx.HTTPError as exc:
@@ -45,7 +54,9 @@ def structured_completion(messages: list[dict[str, str]], contract: type[T]) -> 
             raise ValueError("Expected text")
         return contract.model_validate_json(content, strict=True)
     except (ValueError, TypeError, KeyError, IndexError, ValidationError, json.JSONDecodeError) as exc:
-        raise ProviderError("invalid_model_output", "The AI response did not match the required format. Please try again.") from exc
+        raise ProviderError(
+            "invalid_model_output", "The AI response did not match the required format. Please try again."
+        ) from exc
 
 
 def generate_query_plan(request: QueryRequest) -> QueryPlan:

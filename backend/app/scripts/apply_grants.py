@@ -1,4 +1,5 @@
 """Grant only the approved analytics surface after migrations, as the table owner."""
+
 from sqlalchemy import text
 
 from app.core.db import engine

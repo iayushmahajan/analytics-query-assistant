@@ -15,9 +15,7 @@ if TYPE_CHECKING:
 
 class Product(Base):
     __tablename__ = "products"
-    __table_args__ = (
-        CheckConstraint('price >= 0', name='ck_product_price'),
-    )
+    __table_args__ = (CheckConstraint("price >= 0", name="ck_product_price"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
