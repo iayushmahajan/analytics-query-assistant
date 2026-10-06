@@ -202,7 +202,7 @@ The role/grant setup assumes a dedicated demonstration database with no untruste
 
 ## AI findings and privacy
 
-Generation and result analysis both require validated Pydantic JSON contracts. Foundry Local responses must contain either one JSON object or one exact JSON code fence; prose and malformed output are rejected. Provider outages, malformed JSON and timeouts become stable public errors; raw provider/database messages are not returned. Findings failure is a warning on an otherwise successful result.
+Generation and result analysis both require validated Pydantic JSON contracts. Foundry Local responses must contain either one JSON object or one exact JSON code fence; prose and non-object output are rejected. If Phi-4 Mini produces malformed object syntax, the bounded object is repaired before the unchanged strict Pydantic validation. Semantic contract errors remain rejected, and generated SQL still passes the full validation and execution policy. Provider outages, invalid output and timeouts become stable public errors; raw provider/database messages are not returned. Findings failure is a warning on an otherwise successful result.
 
 The second stage has **no execution tools**. It receives only the selected metric, currency and a bounded result sample. It receives no original question, raw SQL or free-text plan. For any query referencing customers, only numeric result columns are shared, with generic labels; customer-related textual dimensions are deliberately omitted. This also limits the specificity of geographic findings. Other business result labels may be shared. Sampling and possible truncation are disclosed.
 

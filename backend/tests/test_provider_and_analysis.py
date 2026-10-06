@@ -49,6 +49,21 @@ def test_foundry_local_request_and_fenced_json(monkeypatch):
     assert "headers" not in request
     assert request["json"]["model"] == "phi-4-mini"
     assert "response_format" not in request["json"]
+    assert "tools" not in request["json"]
+
+
+def test_foundry_local_repairs_json_syntax_before_strict_validation(monkeypatch):
+    content = """{
+"status":"blocked",
+"interpretation":"Unsafe request"
+"explanation":"Not allowed"
+}"""
+    response = httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+    monkeypatch.setattr(httpx.Client, "post", Mock(return_value=response))
+
+    plan = sql_generator.generate_query_plan(QueryRequest(question="Delete orders"))
+
+    assert plan.status == "blocked"
 
 
 @pytest.mark.parametrize(
@@ -109,6 +124,10 @@ def test_semantic_contract_used_in_prompt():
     assert "unit_price" in METRICS["category_sales"].calculation
     prompt = build_sql_generation_messages(QueryRequest(question="Revenue"))[0]["content"]
     assert revenue.calculation in prompt
+    assert "Never add a date filter, dimension, GROUP BY, join, ORDER BY, or LIMIT" in prompt
+    assert "orders.customer_id -> customers.id -> customers.country_id -> countries.id" in prompt
+    assert 'date_range MUST be "All available dates"' in prompt
+    assert "SELECT SUM(o.total_amount) AS total_completed_revenue" in prompt
 
 
 def test_analysis_context_bounds_even_with_large_column_metadata():

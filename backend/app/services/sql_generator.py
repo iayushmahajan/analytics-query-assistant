@@ -3,6 +3,7 @@ import re
 from typing import TypeVar
 
 import httpx
+from json_repair import repair_json
 from pydantic import BaseModel, ValidationError
 
 from app.api.schemas.query import QueryPlan, QueryRequest
@@ -57,7 +58,13 @@ def structured_completion(messages: list[dict[str, str]], contract: type[T]) -> 
         content = response.json()["choices"][0]["message"]["content"]
         if not isinstance(content, str):
             raise ValueError("Expected text")
-        return contract.model_validate_json(_json_content(content), strict=True)
+        content = _json_content(content)
+        try:
+            return contract.model_validate_json(content, strict=True)
+        except ValidationError as exc:
+            if not any(error["type"] == "json_invalid" for error in exc.errors()):
+                raise
+            return contract.model_validate_json(repair_json(content), strict=True)
     except (ValueError, TypeError, KeyError, IndexError, ValidationError, json.JSONDecodeError) as exc:
         raise ProviderError(
             "invalid_model_output", "The AI response did not match the required format. Please try again."
