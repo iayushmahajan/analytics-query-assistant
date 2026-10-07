@@ -1,5 +1,6 @@
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -20,6 +21,20 @@ class HealthResponse(BaseModel):
     provider: str
 
 
+def provider_status() -> str:
+    if not settings.AI_API_URL:
+        return "not_configured"
+    models_url = settings.AI_API_URL.removesuffix("/chat/completions").rstrip("/") + "/models"
+    try:
+        result = httpx.get(models_url, timeout=2)
+        if result.status_code >= 400:
+            return "unavailable"
+        models = result.json().get("data", [])
+        return "ok" if models else "model_not_loaded"
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError):
+        return "unavailable"
+
+
 @router.get("/health", response_model=HealthResponse)
 def health_check(response: Response):
     checks = {}
@@ -37,9 +52,7 @@ def health_check(response: Response):
             checks[name] = "ok" if restricted else "unsafe_role"
         except SQLAlchemyError:
             checks[name] = "unavailable"
-    checks["provider"] = "configured_not_probed" if settings.AI_API_URL else "not_configured"
-    healthy = all(checks[x] == "ok" for x in ("application_database", "analytics_database")) and bool(
-        settings.AI_API_URL
-    )
+    checks["provider"] = provider_status()
+    healthy = all(checks[x] == "ok" for x in ("application_database", "analytics_database", "provider"))
     response.status_code = 200 if healthy else 503
     return HealthResponse(status="ok" if healthy else "degraded", **checks)

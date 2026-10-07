@@ -115,8 +115,12 @@ function App() {
           {initializing
             ? "Checking services…"
             : health?.status === "ok"
-              ? "Services available · AI configured"
-              : "Service attention needed"}
+              ? "Services available · AI ready"
+              : health?.provider === "unavailable" ||
+                  health?.provider === "model_not_loaded" ||
+                  health?.provider === "not_configured"
+                ? "AI provider unavailable"
+                : "Service attention needed"}
         </span>
       </header>
       <div className="space-y-5">

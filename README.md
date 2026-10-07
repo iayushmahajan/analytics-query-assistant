@@ -230,7 +230,7 @@ Business tables: `countries`, `customers`, `categories`, `products`, `orders`, `
 | `GET /metadata` | Actual date coverage/order count, currency, metric catalog |
 | `GET /health` | Database availability, reader restrictions, provider configuration |
 
-Health returns 503 when required checks fail. Provider status is **configured, not live-probed**. Every request gets an `X-Request-ID`. JSON logs include status/failure category, request ID and timings without questions, result rows, SQL, API keys or raw exception messages. Generation, SQL and analysis timings are separate; response processing time excludes the final history commit/network delivery, while HTTP logs measure the complete handler duration.
+Health returns 503 when required checks fail. It probes Foundry Local's lightweight model-list endpoint and reports whether the provider is reachable with a model loaded. Every request gets an `X-Request-ID`. JSON logs include status/failure category, request ID and timings without questions, result rows, SQL, API keys or raw exception messages. Generation, SQL and insight timings are separate; response processing time excludes the final history commit/network delivery, while HTTP logs measure the complete handler duration.
 
 ## Tests and evaluation
 
