@@ -116,7 +116,7 @@ def test_provider_failure_saved(client, db, stages, code, http):
 
 
 def test_analysis_failure_preserves_results(client, stages):
-    stages[2].side_effect = ProviderError("provider_unavailable", "Unavailable")
+    stages[2].side_effect = ValueError("Could not calculate insights")
     data = client.post("/query", json={"question": "Revenue?"}).json()
     assert data["status"] == "success" and data["rows"] == [["123.45"]]
     assert data["analysis"] is None and data["warnings"]

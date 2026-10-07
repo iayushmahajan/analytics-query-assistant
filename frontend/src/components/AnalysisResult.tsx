@@ -31,7 +31,7 @@ export function AnalysisResult({
             {metric?.name ?? "Analysis"}
           </h2>
           <span className="badge">
-            {result.row_count} rows ·{" "}
+            {result.row_count} {result.row_count === 1 ? "row" : "rows"} ·{" "}
             {(result.timings.total_ms / 1000).toFixed(1)}s processing
           </span>
         </div>
@@ -42,8 +42,8 @@ export function AnalysisResult({
               : "No matching records were returned.")}
         </p>
         <p className="mt-2 text-xs text-slate-400">
-          SQL passed structural checks. AI interpretation and findings may
-          contain errors; inspect the assumptions.
+          SQL passed structural checks. Interpretation is model-generated;
+          result insights are calculated from the returned data.
         </p>
         {result.rows.length === 1 && (
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -113,7 +113,7 @@ export function AnalysisResult({
       </section>
       {analysis && (
         <section className="panel">
-          <h2 className="font-semibold">AI findings</h2>
+          <h2 className="font-semibold">Result insights</h2>
           {(
             [
               ["Key findings", analysis.findings],
@@ -151,14 +151,14 @@ export function AnalysisResult({
       )}
       <details className="panel" open>
         <summary className="cursor-pointer font-semibold">
-          Interpretation & assumptions
+          Interpretation & query scope
         </summary>
         <p className="mt-3 text-sm text-slate-300">{plan?.interpretation}</p>
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
           {[
             ["Metric definition", metric?.calculation],
             ["Date range", plan?.date_range],
-            ["Currency", "EUR · single-currency synthetic dataset"],
+            ["Currency", "EUR · single-currency dataset"],
             ["Canonical statuses", metric?.included_statuses.join(", ") || "Not applicable"],
             [
               "Applied filters (AI interpretation)",
@@ -172,16 +172,9 @@ export function AnalysisResult({
             </div>
           ))}
         </dl>
-        {!!plan?.assumptions.length && (
-          <ul className="mt-4 list-disc pl-5 text-sm text-slate-400">
-            {plan.assumptions.map((a) => (
-              <li key={a}>{a}</li>
-            ))}
-          </ul>
-        )}
         <p className="mt-4 text-xs text-slate-500">
           Generation {result.timings.generation_ms}ms · SQL{" "}
-          {result.timings.execution_ms}ms · Findings{" "}
+          {result.timings.execution_ms}ms · Insights{" "}
           {result.timings.analysis_ms}ms · Saved{" "}
           {new Date(result.created_at).toLocaleString()}
         </p>

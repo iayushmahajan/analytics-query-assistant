@@ -73,10 +73,11 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
             stage = time.perf_counter()
             try:
                 response.analysis = analyze_result(plan, result, validated)
-            except ProviderError as exc:
-                response.warnings.append("Results are available, but AI findings could not be generated.")
+            except (ArithmeticError, ValueError, TypeError, IndexError):
+                response.warnings.append("Results are available, but automated insights could not be calculated.")
                 logger.warning(
-                    "analysis_unavailable", extra={"request_id": request_id, "error_code": exc.code}
+                    "analysis_unavailable",
+                    extra={"request_id": request_id, "error_code": "insight_calculation_failed"},
                 )
             finally:
                 response.timings.analysis_ms = round((time.perf_counter() - stage) * 1000)

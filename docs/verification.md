@@ -16,16 +16,16 @@ Final verification: 6 October 2026. Database checks used disposable databases or
 | Compose configuration, migrations, startup, service health | Passed |
 | Nginx → API → mock provider HTTP → PostgreSQL smoke | Passed |
 | Foundry Local `phi-4-mini` → typed plan → safe SQL → PostgreSQL | Passed live; completed revenue returned **EUR 656,582.37** |
-| Foundry Local result-aware findings | Passed live in a separate bounded-result check |
+| Deterministic bounded-result insights | Covered by focused KPI, ranking, trend and outlier tests |
 | Retired provider smoke before the Foundry Local migration | **Failed: JSON decoding**, safely returned `invalid_model_output` / HTTP 502 |
 | Live 18-case model evaluation | Not run |
 | Remote GitHub Actions execution | Not run for this local verification |
 
 Backend checks cover AST bypass attempts, clarification execution gating, typed provider failures, bounded/private analysis context, snapshots, clean migrations and model agreement, deterministic seeds, constraints, database permission denial, timeouts/rollback, result limits, and golden numeric answers. The 18 golden cases use reference plans against a six-order PostgreSQL fixture in automated tests; this is not a measured live-model accuracy score.
 
-Browser tests use mocked API responses. The separate container smoke used a local deterministic HTTP provider and real PostgreSQL data, including 1,975 seeded orders. Its completed-revenue query returned **EUR 656,582.37**. It checked health, metadata, proxied Swagger/OpenAPI, both provider stages, snapshot restoration, clarification continuation and unsafe SQL rejection. The provider's ready SQL intentionally omitted the completed-status predicate so the application policy had to enforce it.
+Browser tests use mocked API responses. The separate container smoke used a local deterministic HTTP provider and real PostgreSQL data, including 1,975 seeded orders. Its completed-revenue query returned **EUR 656,582.37**. It checked health, metadata, proxied Swagger/OpenAPI, query generation, deterministic insights, snapshot restoration, clarification continuation and unsafe SQL rejection. The provider's ready SQL intentionally omitted the completed-status predicate so the application policy had to enforce it.
 
-Before the Foundry Local migration, two explicitly authorized live synthetic-data requests to the retired provider were attempted. Generation failed before SQL execution or findings generation; the diagnostic request identified `JSONDecodeError`. No raw response or credential was logged. Foundry Local was subsequently verified with the default `phi-4-mini` CPU model. The exact completed-revenue question generated a ready typed plan with no dimensions or date filters, passed SQL validation and returned the seeded PostgreSQL total. Result-aware findings were also verified independently with a bounded synthetic result.
+Before the Foundry Local migration, two explicitly authorized live synthetic-data requests to the retired provider were attempted. Generation failed before SQL execution; the diagnostic request identified `JSONDecodeError`. No raw response or credential was logged. Foundry Local was subsequently verified with the default `phi-4-mini` CPU model. The exact completed-revenue question generated a ready typed plan with no dimensions or date filters, passed SQL validation and returned the seeded PostgreSQL total.
 
 ## Commands
 
@@ -88,4 +88,4 @@ The temporary smoke client/provider and overrides are verification artifacts, no
 - Host port publication failed in this environment's Docker forwarding layer. Container-to-container HTTP verified the full reverse proxy; a published localhost endpoint was not verified here.
 - Pre-existing Python cache directories had incompatible ownership. Compilation succeeded using a temporary cache prefix without changing ownership of existing files.
 - Compatible npm security updates were applied. Five high-severity audit entries remain in Tailwind 3's development dependency chain for nested glob-pattern denial of service. Removing that chain requires a separate Tailwind major migration. These Node dependencies are absent from the Nginx runtime image.
-- No live-provider accuracy, hosted deployment, or remote CI success is claimed. SQL population enforcement does not prove arbitrary generated joins/calculations or findings correct.
+- No live-provider accuracy, hosted deployment, or remote CI success is claimed. SQL population enforcement does not prove arbitrary generated joins or calculations correct.

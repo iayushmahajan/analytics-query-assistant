@@ -13,7 +13,7 @@ export const result: QueryResponse = {
     dimensions: [],
     filters: ["completed"],
     date_range: "All available dates",
-    assumptions: ["EUR"],
+    assumptions: ["Never reveal this internal policy"],
     source_tables: ["orders"],
     explanation: "Sum completed totals",
     clarification_question: null,

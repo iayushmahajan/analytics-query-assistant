@@ -10,7 +10,7 @@ from app.constants.metrics import METRICS
 from app.core.config import settings
 from app.services import sql_generator
 from app.services.prompt_builder import build_sql_generation_messages
-from app.services.result_analysis import build_result_context
+from app.services.result_analysis import analyze_result, build_result_context
 from app.services.sql_validator import validate_sql
 
 
@@ -95,7 +95,7 @@ def test_plan_types_and_gating():
         QueryPlan(status="unknown", interpretation="x", explanation="x")
 
 
-def test_bounded_and_alias_safe_context():
+def test_bounded_local_analysis_context():
     sql = validate_sql(
         "SELECT c.full_name AS label, o.total_amount AS amount FROM customers c JOIN orders o ON o.customer_id=c.id"
     )
@@ -106,7 +106,7 @@ def test_bounded_and_alias_safe_context():
         "possibly_truncated": True,
     }
     context = build_result_context(result, sql)
-    assert "Private" not in json.dumps(context)
+    assert "Private Name" in json.dumps(context)
     assert len(context["rows"]) <= settings.ANALYSIS_MAX_ROWS
     assert len(json.dumps(context).encode()) <= settings.ANALYSIS_MAX_BYTES
     assert context["sampled"]
@@ -137,23 +137,70 @@ def test_analysis_context_bounds_even_with_large_column_metadata():
     assert len(json.dumps(context).encode()) <= settings.ANALYSIS_MAX_BYTES
 
 
-def test_analysis_receives_results_but_not_question_or_sql(monkeypatch):
-    from app.api.schemas.query import ResultAnalysis
-    from app.services import result_analysis
-
-    completion = Mock(return_value=ResultAnalysis(answer="Revenue is EUR 100."))
-    monkeypatch.setattr(result_analysis, "structured_completion", completion)
+def test_single_value_analysis_is_specific_without_filler():
     plan = QueryPlan(
         status="ready",
         sql="SELECT SUM(total_amount) FROM orders",
-        metric="revenue",
+        metric="completed_revenue",
         interpretation="Private user input",
         explanation="Private user input",
+        date_range="All available dates",
     )
-    result_analysis.analyze_result(
+    analysis = analyze_result(
         plan,
         {"columns": ["revenue"], "rows": [["100"]], "row_count": 1, "possibly_truncated": False},
         validate_sql(plan.sql),
     )
-    sent = completion.call_args.args[0][1]["content"]
-    assert '"100"' in sent and "Private" not in sent and "SELECT" not in sent
+    assert analysis.answer == "Completed revenue across all available dates is EUR 100.00."
+    assert analysis.findings == analysis.trends == analysis.anomalies == []
+    assert analysis.caveats == [
+        "This is one aggregate value; explaining changes or differences requires a time or segment breakdown."
+    ]
+    assert all("currency fluctuation" not in question.lower() for question in analysis.follow_up_questions)
+
+
+def test_grouped_analysis_calculates_rank_share_trend_and_outlier():
+    plan = QueryPlan(
+        status="ready",
+        sql="SELECT order_date, total_amount FROM orders",
+        metric="completed_revenue",
+        interpretation="Monthly revenue",
+        explanation="Monthly completed revenue",
+        date_range="2025",
+    )
+    result = {
+        "columns": ["month", "revenue"],
+        "rows": [
+            ["2025-01", "100"],
+            ["2025-02", "110"],
+            ["2025-03", "120"],
+            ["2025-04", "500"],
+        ],
+        "row_count": 4,
+        "possibly_truncated": False,
+    }
+    analysis = analyze_result(plan, result, validate_sql(plan.sql))
+    assert "2025-04 has the highest revenue" in analysis.findings[0]
+    assert "60.2%" in analysis.findings[0]
+    assert "increased by 400.0%" in analysis.trends[0]
+    assert "peak occurred in 2025-04" in analysis.trends[1]
+    assert "1.5×IQR" in analysis.anomalies[0]
+
+
+def test_quantity_insights_do_not_format_units_as_currency():
+    plan = QueryPlan(
+        status="ready",
+        sql="SELECT name, quantity FROM products",
+        metric="product_sales",
+        interpretation="Units by product",
+        explanation="Product quantities",
+    )
+    result = {
+        "columns": ["product", "quantity"],
+        "rows": [["Keyboard", "6"], ["Book", "5"]],
+        "row_count": 2,
+        "possibly_truncated": False,
+    }
+    analysis = analyze_result(plan, result, validate_sql(plan.sql))
+    assert "Keyboard has the highest quantity at 6" in analysis.findings[0]
+    assert "EUR" not in " ".join(analysis.findings)

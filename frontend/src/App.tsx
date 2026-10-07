@@ -5,7 +5,6 @@ import type {
   ExampleItem,
   Health,
   HistoryItem,
-  Metadata,
   QueryResponse,
 } from "./types/query";
 import { QueryInputCard } from "./components/QueryInputCard";
@@ -16,7 +15,6 @@ function App() {
   const [question, setQuestion] = useState("");
   const [examples, setExamples] = useState<ExampleItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,18 +29,16 @@ function App() {
     void Promise.allSettled([
       api.get<ExampleItem[]>("/examples", config),
       api.get<HistoryItem[]>("/history", config),
-      api.get<Metadata>("/metadata", config),
       api.get<Health>("/health", {
         ...config,
         validateStatus: (status) => status === 200 || status === 503,
       }),
-    ]).then(([ex, hist, meta, state]) => {
+    ]).then(([ex, hist, state]) => {
       if (controller.signal.aborted) return;
       if (ex.status === "fulfilled") setExamples(ex.value.data);
       if (hist.status === "fulfilled") setHistory(hist.value.data);
-      if (meta.status === "fulfilled") setMetadata(meta.value.data);
       if (state.status === "fulfilled") setHealth(state.value.data);
-      if ([ex, hist, meta, state].some((item) => item.status === "rejected"))
+      if ([ex, hist, state].some((item) => item.status === "rejected"))
         setNotice(
           "Some workspace data could not load. You can retry history below or reload the page.",
         );
@@ -123,22 +119,6 @@ function App() {
               : "Service attention needed"}
         </span>
       </header>
-      <section
-        aria-label="Dataset context"
-        className="mb-5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-slate-800 bg-slate-900/50 px-5 py-3 text-sm text-slate-300"
-      >
-        <strong>{metadata?.name ?? "Sales dataset"}</strong>
-        <span className="text-amber-200">Synthetic demo data</span>
-        <span>{metadata?.currency ?? "EUR"}</span>
-        <span>
-          {metadata?.date_start && metadata.date_end
-            ? `${metadata.date_start} — ${metadata.date_end}`
-            : "Date coverage unavailable"}
-        </span>
-        {metadata && (
-          <span>{metadata.order_count.toLocaleString()} orders</span>
-        )}
-      </section>
       <div className="space-y-5">
         <QueryInputCard
           question={question}

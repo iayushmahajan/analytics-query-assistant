@@ -58,7 +58,7 @@ export function QueryInputCard({
           </button>
           {isLoading && (
             <span role="status" className="text-sm text-slate-400">
-              Interpreting, querying and preparing findings…
+              Interpreting, querying and calculating insights…
             </span>
           )}
         </div>

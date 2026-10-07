@@ -27,7 +27,9 @@ export function ResultsTableCard({ columns, rows }: Props) {
   return (
     <section aria-label="Result table">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-slate-400">{rows.length} returned rows</p>
+        <p className="text-sm text-slate-400">
+          {rows.length} returned {rows.length === 1 ? "row" : "rows"}
+        </p>
         <button
           className="secondary"
           disabled={!rows.length}

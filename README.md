@@ -10,10 +10,10 @@ The dataset is **synthetic, single-currency EUR sales data**. This is a shared d
 - Clarification before execution; `needs_clarification` never runs SQL. Up to three clarification turns travel with the original question.
 - PostgreSQL SQL parsed with SQLGlot, a restricted analytics role, read-only transactions, outer row caps and timeouts.
 - Canonical completed-order population enforced structurally for revenue, AOV and completed-sales metrics, even if generated SQL omits the status filter.
-- A second, separate AI call analyzes a bounded result context. Query results remain available if findings generation fails.
-- Dataset coverage and real health status, numeric KPI cards for single-row results, line/bar charts for compatible two-column results, sortable tables and CSV export.
-- Inspectable assumptions, filters, actual SQL source tables and formatted SQL with copy support.
-- History restores bounded result snapshots and findings without rerunning either AI stage.
+- Deterministic result insights calculate rankings, shares, time changes, peaks and IQR outliers without a second model call.
+- Real health status, numeric KPI cards for single-row results, line/bar charts for compatible two-column results, sortable tables and CSV export.
+- Inspectable query scope, filters, actual SQL source tables and formatted SQL with copy support.
+- History restores bounded result snapshots and insights without rerunning the model.
 - Deterministic demo seeding, database constraints, Alembic migrations, adversarial tests and 18 golden evaluation cases.
 
 ## Architecture
@@ -26,8 +26,8 @@ flowchart TD
     G -->|needs_clarification| U
     G -->|ready| V[SQLGlot validation + canonical population policy]
     V --> R[Restricted PostgreSQL reader / read-only transaction]
-    R --> B[Bounded result / privacy filtering]
-    B --> A[Result-aware AI analysis / no database tools]
+    R --> B[Bounded result]
+    B --> A[Deterministic descriptive analysis]
     A --> H[Application DB connection / history snapshot]
     H --> U
 ```
@@ -200,11 +200,11 @@ Each execution additionally starts a read-only transaction, applies its configur
 
 The role/grant setup assumes a dedicated demonstration database with no untrusted extension functions or additional role memberships. Application/table-owner credentials are trusted administration credentials and are never used for model SQL. PostgreSQL built-in functions are also limited by the application allowlist; row caps do not eliminate expensive query plans, so timeouts remain necessary.
 
-## AI findings and privacy
+## Result insights and privacy
 
-Generation and result analysis both require validated Pydantic JSON contracts. Foundry Local responses must contain either one JSON object or one exact JSON code fence; prose and non-object output are rejected. If Phi-4 Mini produces malformed object syntax, the bounded object is repaired before the unchanged strict Pydantic validation. Semantic contract errors remain rejected, and generated SQL still passes the full validation and execution policy. Provider outages, invalid output and timeouts become stable public errors; raw provider/database messages are not returned. Findings failure is a warning on an otherwise successful result.
+Query generation requires a validated Pydantic JSON contract. Foundry Local responses must contain either one JSON object or one exact JSON code fence; prose and non-object output are rejected. If Phi-4 Mini produces malformed object syntax, the bounded object is repaired before the unchanged strict Pydantic validation. Semantic contract errors remain rejected, and generated SQL still passes the full validation and execution policy. Provider outages, invalid output and timeouts become stable public errors; raw provider/database messages are not returned.
 
-The second stage has **no execution tools**. It receives only the selected metric, currency and a bounded result sample. It receives no original question, raw SQL or free-text plan. For any query referencing customers, only numeric result columns are shared, with generic labels; customer-related textual dimensions are deliberately omitted. This also limits the specificity of geographic findings. Other business result labels may be shared. Sampling and possible truncation are disclosed.
+Result insights are calculated inside the backend from a bounded result context; no query rows are sent to the model. Single values receive a precise answer and an explicit limitation instead of manufactured trends. Grouped results can report high/low values and shares; time series can report endpoint change and peaks; four or more comparable values receive a 1.5×IQR outlier check. Empty categories are omitted, and truncation or sampling is disclosed only when it occurs.
 
 The first stage necessarily receives the question and clarification text. Do not enter confidential information. The application is intended for synthetic data and shares history between visitors; authentication and private workspaces are intentionally out of scope.
 
@@ -270,7 +270,7 @@ cd backend
 python -m evals.evaluate --live
 ```
 
-This spends up to 18 generation requests and checks returned plans/results against the same expectations. It does not auto-reseed or call the findings model. The live suite was not run during this upgrade.
+This spends up to 18 generation requests and checks returned plans/results against the same expectations. It does not auto-reseed. The live suite was not run during this upgrade.
 
 Frontend component tests cover success, clarification, history, errors, clipboard denial, CSV safety and chart-shape selection. Chromium tests cover category and time-series charts, mobile overflow, clarification continuation, CSV download, history restoration and failed-query clearing. Their API responses are mocked; they are not live-provider browser tests.
 
@@ -278,7 +278,7 @@ GitHub Actions runs Python checks plus PostgreSQL integration, frontend lint/typ
 
 ## Limitations
 
-- AI-selected joins, calculations and findings can still be wrong. Canonical definitions, status enforcement and evaluation improve reliability but do not prove arbitrary analytical correctness.
+- AI-selected joins and calculations can still be wrong. Canonical definitions, status enforcement and evaluation improve reliability but do not prove arbitrary analytical correctness.
 - The fixed function/schema allowlist intentionally rejects unsupported SQL. There is no automatic SQL repair loop or arbitrary database connection/upload support.
 - Snapshot and analysis caps can truncate results; charts describe returned rows, not an unobserved complete population. Charts require one textual/date dimension and one numeric measure; other shapes use tables. KPI cards reflect actual single-row numeric values.
 - History is shared and retained until an explicit demo reset; no authentication, quotas or multi-tenancy. Do not expose it as a private business-data service.

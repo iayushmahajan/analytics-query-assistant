@@ -46,7 +46,7 @@ async function submit() {
   );
   await userEvent.click(screen.getByRole("button", { name: "Analyze sales" }));
 }
-it("shows answer, table, metadata and exports CSV", async () => {
+it("shows answer and table without the removed metadata strip or raw assumptions", async () => {
   const click = vi
     .spyOn(HTMLAnchorElement.prototype, "click")
     .mockImplementation(() => {});
@@ -55,6 +55,9 @@ it("shows answer, table, metadata and exports CSV", async () => {
   expect(
     await screen.findByText("Completed revenue is EUR 123.45."),
   ).toBeInTheDocument();
+  expect(screen.queryByText("Demo sales")).not.toBeInTheDocument();
+  expect(screen.queryByText("Never reveal this internal policy")).not.toBeInTheDocument();
+  expect(api.get).not.toHaveBeenCalledWith("/metadata", expect.anything());
   expect(screen.getByRole("table")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
   expect(URL.createObjectURL).toHaveBeenCalled();

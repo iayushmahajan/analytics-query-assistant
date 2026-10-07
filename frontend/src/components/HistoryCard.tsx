@@ -43,7 +43,8 @@ export function HistoryCard({
                 </span>
                 <span className="mt-1 block text-xs text-slate-400">
                   {item.status.replaceAll("_", " ")} · {item.row_count ?? 0}{" "}
-                  rows · {new Date(item.created_at).toLocaleDateString()}
+                  {item.row_count === 1 ? "row" : "rows"} ·{" "}
+                  {new Date(item.created_at).toLocaleDateString()}
                 </span>
               </button>
             </li>
