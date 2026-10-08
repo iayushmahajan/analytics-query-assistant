@@ -4,7 +4,15 @@ import { cleanup } from "@testing-library/react";
 afterEach(cleanup);
 Object.defineProperty(window, "ResizeObserver", {
   value: class {
-    observe() {}
+    private callback: ResizeObserverCallback;
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+    observe(target: Element) {
+      this.callback([
+        { target, contentRect: { width: 800, height: 300 } } as ResizeObserverEntry,
+      ], this as unknown as ResizeObserver);
+    }
     unobserve() {}
     disconnect() {}
   },

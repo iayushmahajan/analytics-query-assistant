@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import type { Cell } from "../types/query";
 import { downloadCsv, formatCell, label, numeric } from "../lib/results";
 
-type Props = { columns: string[]; rows: Cell[][]; currency?: string };
-export function ResultsTableCard({ columns, rows, currency = "GBP" }: Props) {
+type Props = { columns: string[]; rows: Cell[][]; currency?: string | null };
+export function ResultsTableCard({ columns, rows, currency }: Props) {
   const [sort, setSort] = useState<{
     index: number;
     ascending: boolean;

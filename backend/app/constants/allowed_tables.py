@@ -1,1 +1,1 @@
-ALLOWED_TABLES = {"retail_lines"}
+ALLOWED_TABLES = {"retail_observations"}

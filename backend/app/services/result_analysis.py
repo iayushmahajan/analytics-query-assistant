@@ -1,7 +1,6 @@
 import json
 import re
 from decimal import Decimal, InvalidOperation
-from statistics import quantiles
 
 from app.api.schemas.query import QueryPlan, ResultAnalysis
 from app.constants.metrics import RETAIL_METRICS
@@ -54,6 +53,13 @@ def _format_value(value: Decimal, currency: str | None) -> str:
     return f"{value:,.2f}"
 
 
+def _format_measure(value: Decimal, metric_id: str, column: str) -> str:
+    formatted = _format_value(value, None)
+    if metric_id in {"monthly_change", "yearly_change"} or "change" in column.lower():
+        return f"{formatted} index points"
+    return formatted
+
+
 def _humanize(value: str) -> str:
     return value.replace("_", " ").strip()
 
@@ -71,10 +77,11 @@ def _is_temporal(column: str, labels: list[str]) -> bool:
 
 
 def _follow_ups(metric_id: str) -> list[str]:
+    _ = metric_id
     return [
-        "Show monthly gross sales during 2011.",
-        "Which countries generated the most gross sales?",
-        "Which products sold the most units?",
+        "Compare Germany and the EU-27 over the latest 12 months.",
+        "Which EU countries have the strongest latest annual change?",
+        "Show unusual German retail movements since 2024.",
     ]
 
 
@@ -106,20 +113,31 @@ def analyze_result(plan: QueryPlan, result: dict, validated: ValidatedSQL) -> Re
     ]
     dimension_indexes = [index for index in range(len(columns)) if index not in numeric_indexes]
 
-    if len(rows) == 1 and len(numeric_indexes) == 1 and not dimension_indexes:
+    if len(rows) == 1 and len(numeric_indexes) == 1:
         measure_index = numeric_indexes[0]
         value = _number(rows[0][measure_index])
-        currency = _measure_currency(metric.currency, columns[measure_index])
-        caveats.append(
-            "This is one aggregate value; explaining changes or differences requires a time or segment breakdown."
-        )
+        measure = _format_measure(value, metric.id, columns[measure_index])
+        label = str(rows[0][dimension_indexes[0]]) if dimension_indexes else scope
+        reference = " (2021=100)" if metric.id == "retail_index" else ""
+        findings: list[str] = []
+        if metric.id == "retail_index":
+            distance = value - Decimal(100)
+            position = "above" if distance > 0 else "below" if distance < 0 else "at"
+            if distance:
+                findings.append(
+                    f"The observation is {_format_value(abs(distance), None)} index points "
+                    f"{position} the 2021 reference level."
+                )
+            else:
+                findings.append("The observation equals the 2021 reference level.")
         return ResultAnalysis(
-            answer=f"{metric.name} across {scope} is {_format_value(value, currency)}.",
+            answer=f"{metric.name} for {label} is {measure}{reference}.",
+            findings=findings,
             caveats=caveats,
             follow_up_questions=_follow_ups(metric.id),
         )
 
-    answer = f"{metric.name} returned {context['returned_row_count']:,} grouped results across {scope}."
+    answer = f"{metric.name}: {context['returned_row_count']:,} returned rows for {scope}."
     findings: list[str] = []
     trends: list[str] = []
     anomalies: list[str] = []
@@ -138,22 +156,22 @@ def analyze_result(plan: QueryPlan, result: dict, validated: ValidatedSQL) -> Re
 
     dimension_index = dimension_indexes[0] if dimension_indexes else None
     measure_name = _humanize(columns[measure_index])
-    currency = _measure_currency(metric.currency, columns[measure_index])
     labels = [str(row[dimension_index]) for row, _ in points] if dimension_index is not None else []
     ranked = sorted(points, key=lambda item: item[1], reverse=True)
     top_row, top_value = ranked[0]
     top_label = str(top_row[dimension_index]) if dimension_index is not None else "The highest row"
-    top_text = f"{top_label} has the highest {measure_name} at {_format_value(top_value, currency)}"
-    additive = all(value >= 0 for _, value in points)
-    total = sum((value for _, value in points), Decimal(0))
-    if additive and total > 0:
-        top_text += f", representing {(top_value / total * 100):.1f}% of the returned total"
-    findings.append(top_text + ".")
+    findings.append(
+        f"{top_label} has the highest {measure_name} at "
+        f"{_format_measure(top_value, metric.id, columns[measure_index])}."
+    )
 
     if len(ranked) > 1 and ranked[-1][1] != top_value:
         low_row, low_value = ranked[-1]
         low_label = str(low_row[dimension_index]) if dimension_index is not None else "The lowest row"
-        findings.append(f"{low_label} has the lowest {measure_name} at {_format_value(low_value, currency)}.")
+        findings.append(
+            f"{low_label} has the lowest {measure_name} at "
+            f"{_format_measure(low_value, metric.id, columns[measure_index])}."
+        )
 
     if dimension_index is not None and _is_temporal(columns[dimension_index], labels) and len(points) > 1:
         chronological = sorted(points, key=lambda item: str(item[0][dimension_index]))
@@ -163,24 +181,25 @@ def analyze_result(plan: QueryPlan, result: dict, validated: ValidatedSQL) -> Re
         if first_value:
             change = (last_value - first_value) / abs(first_value) * 100
             direction = "increased" if change > 0 else "decreased" if change < 0 else "was unchanged"
-            suffix = f" by {abs(change):.1f}%" if change else ""
+            point_change = last_value - first_value
+            suffix = (
+                f" by {_format_value(abs(point_change), None)} index points ({abs(change):.1f}%)"
+                if change else ""
+            )
             trends.append(f"From {first_label} to {last_label}, {measure_name} {direction}{suffix}.")
-        trends.append(f"The peak occurred in {top_label} at {_format_value(top_value, currency)}.")
+        trends.append(
+            f"The highest returned level occurred in {top_label} at "
+            f"{_format_measure(top_value, metric.id, columns[measure_index])}."
+        )
 
-    values = [float(value) for _, value in points]
-    if len(values) >= 4:
-        q1, _, q3 = quantiles(values, n=4, method="inclusive")
-        spread = q3 - q1
-        if spread > 0:
-            lower, upper = q1 - 1.5 * spread, q3 + 1.5 * spread
-            for row, value in points:
-                if float(value) < lower or float(value) > upper:
-                    label = str(row[dimension_index]) if dimension_index is not None else "A returned row"
-                    anomalies.append(
-                        f"{label} is outside the 1.5×IQR range at {_format_value(value, currency)}."
-                    )
-                    if len(anomalies) == 3:
-                        break
+    if metric.id == "retail_anomaly_score":
+        for row, value in sorted(points, key=lambda item: abs(item[1]), reverse=True)[:3]:
+            if abs(value) >= Decimal("3.5"):
+                label = str(row[dimension_index]) if dimension_index is not None else "A returned row"
+                anomalies.append(
+                    f"{label} exceeds the declared anomaly threshold with a robust score of "
+                    f"{_format_value(value, None)}."
+                )
 
     return ResultAnalysis(
         answer=answer,

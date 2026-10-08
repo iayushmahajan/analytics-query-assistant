@@ -48,7 +48,7 @@ def health_check(response: Response):
                     text(
                         "SELECT 1 FROM query_history LIMIT 0"
                         if name == "application_database"
-                        else "SELECT id FROM retail_lines LIMIT 0"
+                        else "SELECT geo_code FROM retail_observations LIMIT 0"
                     )
                 )
                 restricted = name != "analytics_database" or reader_is_restricted(connection)

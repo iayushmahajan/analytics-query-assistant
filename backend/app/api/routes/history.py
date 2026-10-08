@@ -15,7 +15,7 @@ router = APIRouter(prefix="/history", tags=["history"])
 def get_history(db: Session = Depends(get_db)):
     items = (
         db.query(QueryHistory)
-        .filter(QueryHistory.snapshot["dataset"].as_string() == "retail")
+        .filter(QueryHistory.snapshot["dataset"].as_string() == "eurostat")
         .order_by(desc(QueryHistory.created_at))
         .limit(settings.QUERY_HISTORY_LIMIT)
         .all()
@@ -23,7 +23,7 @@ def get_history(db: Session = Depends(get_db)):
     return [HistoryItem(
         id=item.id, question=item.question, status=item.status,
         row_count=item.row_count, created_at=item.created_at,
-        dataset="retail",
+        dataset="eurostat",
     ) for item in items]
 
 
@@ -32,6 +32,6 @@ def get_history_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(QueryHistory, item_id)
     if not item:
         raise HTTPException(404, "History item not found.")
-    if not item.snapshot or item.snapshot.get("dataset") != "retail":
+    if not item.snapshot or item.snapshot.get("dataset") != "eurostat":
         raise HTTPException(409, "This legacy entry has no saved result. Run the question again.")
     return QueryResponse.model_validate(item.snapshot)

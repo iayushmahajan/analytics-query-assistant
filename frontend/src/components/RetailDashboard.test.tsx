@@ -1,42 +1,31 @@
 import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
+import { retailOverview } from "../test/fixtures";
 import { RetailDashboard } from "./RetailDashboard";
-import type { RetailOverview } from "../types/query";
-import { marketForecast as forecast } from "../test/fixtures";
 
-const overview: RetailOverview = {
-  available: true, source: "UCI Online Retail · CC BY 4.0", currency: "GBP",
-  start: "2010-12-01", end: "2011-12-09", source_lines: 100,
-  sale_lines: 90, excluded_lines: 10, sales_invoices: 20,
-  gross_sales: 12345, units: 350,
-  imported_at: "2026-10-08T10:00:00Z", source_sha256: "abcdef0123456789", dropped_lines: 2,
-  months: [{ month: "2011-01", gross_sales: 12345, units: 350 }],
-  products: [{ name: "Paper star", gross_sales: 2345, units: 30 }],
-  countries: [{ name: "United Kingdom", gross_sales: 12345, units: 350 }],
-};
-
-it("shows the current Germany forecast with out-of-sample evidence", () => {
-  render(<RetailDashboard overview={overview} forecast={forecast} failed={false} />);
-  expect(screen.getAllByText("£12,345").length).toBeGreaterThan(0);
-  expect(screen.getByText("Historical sales analysis")).toBeInTheDocument();
-  expect(screen.getByText("Germany retail outlook")).toBeInTheDocument();
-  expect(screen.getByText(/independent German market series/)).toBeInTheDocument();
-  expect(screen.getByText("+1.0 points")).toBeInTheDocument();
-  expect(screen.getByText("+12.0 points")).toBeInTheDocument();
-  expect(screen.getByText("Gradient boosting")).toBeInTheDocument();
-  expect(screen.getByText("2.1%")).toBeInTheDocument();
-  expect(screen.getByText(/Aug 2026 · provisional/)).toBeInTheDocument();
-  expect(screen.getByText(/has no products, customers/)).toBeInTheDocument();
-  expect(screen.getByText(/not a guaranteed result/)).toBeInTheDocument();
+it("presents one Eurostat market workspace with comparable evidence", () => {
+  render(<RetailDashboard overview={retailOverview} failed={false} />);
+  expect(screen.getByText("European retail intelligence")).toBeInTheDocument();
+  expect(screen.getByText("One source, one analytical model.")).toBeInTheDocument();
+  expect(screen.getByText("104.2")).toBeInTheDocument();
+  expect(screen.getByText("-0.4 pts")).toBeInTheDocument();
+  expect(screen.getByText("9 of 27")).toBeInTheDocument();
+  expect(screen.getByText("Germany and EU-27")).toBeInTheDocument();
+  expect(screen.getByText("Germany by retail segment")).toBeInTheDocument();
+  expect(screen.getByText("Spain")).toBeInTheDocument();
+  expect(screen.getByText(/score 4.6/)).toBeInTheDocument();
+  expect(screen.getByText("15,320")).toBeInTheDocument();
+  expect(screen.getByText(/does not represent revenue in euros/)).toBeInTheDocument();
 });
 
-it("explains how to build a missing market forecast", () => {
-  render(<RetailDashboard overview={overview} forecast={{ ...forecast, available: false }} failed={false} />);
-  expect(screen.getByText("Germany forecast is ready to build")).toBeInTheDocument();
+it("explains an imported dataset with no flagged recent movements", () => {
+  render(<RetailDashboard overview={{ ...retailOverview, anomalies: [] }} failed={false} />);
+  expect(screen.getByText(/No movements exceeded the robust anomaly threshold/)).toBeInTheDocument();
 });
 
-it("keeps a forecast request failure separate from the retail overview", () => {
-  render(<RetailDashboard overview={overview} forecast={null} failed={false} />);
-  expect(screen.getByText("Historical sales analysis")).toBeInTheDocument();
-  expect(screen.getByText("Loading Germany market data")).toBeInTheDocument();
+it("shows actionable empty and failure states", () => {
+  const { rerender } = render(<RetailDashboard overview={{ ...retailOverview, available: false }} failed={false} />);
+  expect(screen.getByText("Eurostat data is ready to import")).toBeInTheDocument();
+  rerender(<RetailDashboard overview={null} failed />);
+  expect(screen.getByText("Market dashboard unavailable")).toBeInTheDocument();
 });

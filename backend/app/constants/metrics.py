@@ -1,13 +1,15 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 MetricId = Literal[
-    "retail_gross_sales",
-    "retail_units",
-    "retail_invoices",
-    "retail_product_sales",
-    "retail_country_sales",
+    "retail_index",
+    "monthly_change",
+    "yearly_change",
+    "retail_volatility",
+    "retail_anomaly_score",
+    "country_comparison",
+    "category_comparison",
 ]
 
 
@@ -19,21 +21,77 @@ class Metric(BaseModel):
     calculation: str
     source_tables: list[str]
     date_field: str
-    included_statuses: list[str]
-    excluded_statuses: list[str]
+    included_statuses: list[str] = Field(default_factory=list)
+    excluded_statuses: list[str] = Field(default_factory=list)
     currency: str | None = None
-    aliases: list[str] = []
+    aliases: list[str] = Field(default_factory=list)
 
 
-# Positive, priced, non-cancelled invoice lines are gross sales.
-# The source does not establish net revenue or refunds.
 RETAIL_METRICS = {
-    m.id: m
-    for m in [
-        Metric(id="retail_gross_sales", name="Gross sales", description="Positive priced, non-cancelled invoice lines.", calculation="SUM(retail_lines.quantity * retail_lines.unit_price) on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], currency="GBP", aliases=["sales", "sales value"]),
-        Metric(id="retail_units", name="Units sold", description="Units on sale lines.", calculation="SUM(retail_lines.quantity) on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], aliases=["quantity"]),
-        Metric(id="retail_invoices", name="Sales invoices", description="Distinct invoices with sale lines.", calculation="COUNT(DISTINCT retail_lines.invoice_no) on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], aliases=["orders"]),
-        Metric(id="retail_product_sales", name="Product gross sales", description="Gross sales by stock code or description.", calculation="SUM(retail_lines.quantity * retail_lines.unit_price) grouped by stock_code or description on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], currency="GBP", aliases=["product sales"]),
-        Metric(id="retail_country_sales", name="Country gross sales", description="Gross sales by invoice country.", calculation="SUM(retail_lines.quantity * retail_lines.unit_price) grouped by country on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], currency="GBP", aliases=["country sales"]),
+    metric.id: metric
+    for metric in [
+        Metric(
+            id="retail_index",
+            name="Retail volume index",
+            description="Seasonally and calendar-adjusted retail sales volume; 2021 average equals 100.",
+            calculation="retail_observations.value for the requested geography, category and period",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["index", "retail performance", "retail volume"],
+        ),
+        Metric(
+            id="monthly_change",
+            name="Monthly change",
+            description="Difference from the immediately preceding available calendar month, in index points.",
+            calculation="retail_observations.monthly_change",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["month over month", "monthly movement", "mom"],
+        ),
+        Metric(
+            id="yearly_change",
+            name="Annual change",
+            description="Difference from the same calendar month one year earlier, in index points.",
+            calculation="retail_observations.yearly_change",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["year over year", "annual movement", "yoy"],
+        ),
+        Metric(
+            id="retail_volatility",
+            name="Rolling volatility",
+            description="Population standard deviation of up to 12 preceding monthly index-point changes.",
+            calculation="retail_observations.rolling_volatility",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["volatility", "stability", "variation"],
+        ),
+        Metric(
+            id="retail_anomaly_score",
+            name="Anomaly score",
+            description="Robust score for a monthly change relative to up to 36 preceding changes.",
+            calculation="retail_observations.anomaly_score; is_anomaly is true when ABS(anomaly_score) >= 3.5",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["anomaly", "unusual movement", "outlier"],
+        ),
+        Metric(
+            id="country_comparison",
+            name="Country comparison",
+            description="Retail index or derived change compared across EU member states.",
+            calculation="Compare a consistent retail_observations measure and period grouped by geography",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["country ranking", "market comparison"],
+        ),
+        Metric(
+            id="category_comparison",
+            name="Category comparison",
+            description="Retail index or derived change compared across the four curated retail categories.",
+            calculation="Compare a consistent retail_observations measure and period grouped by category",
+            source_tables=["retail_observations"],
+            date_field="retail_observations.period",
+            aliases=["category ranking", "retail segment comparison"],
+        ),
     ]
 }

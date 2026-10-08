@@ -31,7 +31,7 @@ export function QueryInputCard({
           What would you like to understand?
         </label>
         <p id="question-hint" className="mt-1 text-sm text-slate-500">
-          Ask about historical gross sales, units, invoices, products or countries. This dataset ends in 2011.
+          Ask about retail indices, EU countries, categories, changes, volatility or unusual movements since 2015.
         </p>
         <textarea
           id="question"
@@ -40,12 +40,12 @@ export function QueryInputCard({
           value={question}
           disabled={isLoading}
           onChange={(event) => onQuestionChange(event.target.value)}
-          placeholder="How did monthly gross sales change during 2011?"
+          placeholder="How has Germany's total retail index changed since 2021?"
           className="input mt-4 min-h-24"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button className="primary" disabled={isLoading || !question.trim()}>
-            {isLoading ? "Analyzing…" : "Analyze sales"}
+            {isLoading ? "Analyzing…" : "Analyze market"}
           </button>
           <button
             type="button"

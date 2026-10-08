@@ -81,4 +81,4 @@ for router in (health_router, examples_router, history_router, query_router, ret
 
 @app.get("/")
 def root():
-    return {"message": "Retail Analytics & Demand Forecasting Platform API", "docs": "/docs"}
+    return {"message": "Eurostat Retail Intelligence Platform API", "docs": "/docs"}

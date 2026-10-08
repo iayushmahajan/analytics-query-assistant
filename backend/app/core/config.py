@@ -10,7 +10,7 @@ def parse_csv_env(value: str) -> list[str]:
 
 
 class Settings:
-    APP_NAME: str = os.getenv("APP_NAME", "Retail Analytics & Demand Forecasting Platform API")
+    APP_NAME: str = os.getenv("APP_NAME", "European Retail Intelligence Platform API")
     APP_ENV: str = os.getenv("APP_ENV", "development")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "")

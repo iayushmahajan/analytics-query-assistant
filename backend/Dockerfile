@@ -11,7 +11,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM runtime AS test
 USER root
-COPY requirements-dev.txt requirements-ml.txt pyproject.toml ./
+COPY requirements-dev.txt pyproject.toml ./
 RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY tests ./tests
 ENV PYTEST_ADDOPTS="-o cache_dir=/tmp/pytest-cache"
@@ -19,9 +19,3 @@ USER appuser
 CMD ["pytest", "-q"]
 
 FROM runtime AS production
-
-FROM runtime AS ml
-USER root
-COPY requirements-ml.txt .
-RUN pip install --no-cache-dir -r requirements-ml.txt
-USER appuser

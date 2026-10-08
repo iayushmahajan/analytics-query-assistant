@@ -18,7 +18,7 @@ class ClarificationTurn(Contract):
 class QueryRequest(Contract):
     question: str = Field(min_length=1, max_length=2000)
     clarification: list[ClarificationTurn] = Field(default_factory=list, max_length=3)
-    dataset: Literal["retail"] = "retail"
+    dataset: Literal["eurostat"] = "eurostat"
 
 
 class QueryPlan(Contract):
@@ -70,7 +70,7 @@ class QueryResponse(Contract):
     id: int | None = None
     request_id: str
     question: str
-    dataset: Literal["retail"] = "retail"
+    dataset: Literal["eurostat"] = "eurostat"
     clarification: list[ClarificationTurn] = Field(default_factory=list)
     status: Literal["success", "needs_clarification", "blocked", "failed"]
     plan: QueryPlan | None = None

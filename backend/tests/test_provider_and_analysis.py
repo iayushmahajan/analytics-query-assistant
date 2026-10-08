@@ -19,7 +19,7 @@ def test_malformed_model_output(content, monkeypatch):
     response = httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(httpx.Client, "post", Mock(return_value=response))
     with pytest.raises(sql_generator.ProviderError) as error:
-        sql_generator.generate_query_plan(QueryRequest(question="Gross sales"))
+        sql_generator.generate_query_plan(QueryRequest(question="German retail index"))
     assert error.value.code == "invalid_model_output"
 
 
@@ -28,7 +28,7 @@ def test_provider_status_mapping(status, code, monkeypatch):
     monkeypatch.setattr(httpx.Client, "post",
                         Mock(return_value=httpx.Response(status, text="secret provider detail")))
     with pytest.raises(sql_generator.ProviderError) as error:
-        sql_generator.generate_query_plan(QueryRequest(question="Gross sales"))
+        sql_generator.generate_query_plan(QueryRequest(question="German retail index"))
     assert error.value.code == code
     assert "secret" not in str(error.value)
 
@@ -61,21 +61,21 @@ def test_json_extraction_rejects_prose_and_non_objects(content, monkeypatch):
     response = httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(httpx.Client, "post", Mock(return_value=response))
     with pytest.raises(sql_generator.ProviderError) as error:
-        sql_generator.generate_query_plan(QueryRequest(question="Gross sales"))
+        sql_generator.generate_query_plan(QueryRequest(question="German retail index"))
     assert error.value.code == "invalid_model_output"
 
 
 def test_plan_types_and_gating():
     with pytest.raises(ValidationError):
-        QueryPlan(status="needs_clarification", sql="SELECT * FROM retail_lines",
+        QueryPlan(status="needs_clarification", sql="SELECT * FROM retail_observations",
                   interpretation="x", explanation="x", clarification_question="Which?")
     with pytest.raises(ValidationError):
         QueryPlan(status="unknown", interpretation="x", explanation="x")
 
 
 def test_bounded_local_analysis_context():
-    sql = validate_sql("SELECT country, quantity FROM retail_lines")
-    result = {"columns": ["country", "quantity"], "rows": [["United Kingdom", "123"]] * 100,
+    sql = validate_sql("SELECT geography, value FROM retail_observations")
+    result = {"columns": ["geography", "value"], "rows": [["Germany", "99.9"]] * 100,
               "row_count": 100, "possibly_truncated": True}
     context = build_result_context(result, sql)
     assert len(context["rows"]) <= settings.ANALYSIS_MAX_ROWS
@@ -86,55 +86,77 @@ def test_bounded_local_analysis_context():
 
 
 def test_semantic_contract_used_in_prompt():
-    metric = RETAIL_METRICS["retail_gross_sales"]
-    assert metric.included_statuses == ["sale"]
-    assert metric.currency == "GBP" and metric.date_field == "retail_lines.invoice_date"
-    prompt = build_sql_generation_messages(QueryRequest(question="Gross sales"))[0]["content"]
+    metric = RETAIL_METRICS["retail_index"]
+    assert metric.currency is None and metric.date_field == "retail_observations.period"
+    prompt = build_sql_generation_messages(QueryRequest(question="German retail index"))[0]["content"]
     assert metric.calculation in prompt
-    assert "retail_lines" in prompt
-    assert "No product categories" in prompt
-    assert "net revenue after returns" in prompt
+    assert "retail_observations" in prompt
+    assert "G47_NFOOD_X_G473" in prompt
+    assert "INDEX POINTS" in prompt
+    assert "future predictions" in prompt
 
 
 def test_analysis_context_bounds_large_columns():
-    sql = validate_sql("SELECT country FROM retail_lines")
+    sql = validate_sql("SELECT geography FROM retail_observations")
     result = {"columns": ["c" * 5000] * 40, "rows": [["x"] * 40],
               "row_count": 1, "possibly_truncated": False}
     assert len(json.dumps(build_result_context(result, sql)).encode()) <= settings.ANALYSIS_MAX_BYTES
 
 
 def test_single_value_analysis_is_specific():
-    plan = QueryPlan(status="ready", sql="SELECT SUM(quantity * unit_price) FROM retail_lines",
-                     metric="retail_gross_sales", interpretation="Gross sales",
-                     explanation="Sale value", date_range="All available dates")
+    plan = QueryPlan(status="ready", sql="SELECT MAX(value) FROM retail_observations",
+                     metric="retail_index", interpretation="Latest index",
+                     explanation="Read the index", date_range="All available dates")
     analysis = analyze_result(plan,
-        {"columns": ["gross_sales"], "rows": [["100"]], "row_count": 1,
+        {"columns": ["retail_index"], "rows": [["100"]], "row_count": 1,
          "possibly_truncated": False}, validate_sql(plan.sql))
-    assert analysis.answer == "Gross sales across all available dates is GBP 100.00."
-    assert analysis.findings == analysis.trends == analysis.anomalies == []
-    assert len(analysis.caveats) == 1
+    assert analysis.answer == "Retail volume index for all available dates is 100 (2021=100)."
+    assert analysis.findings == ["The observation equals the 2021 reference level."]
+    assert analysis.trends == analysis.anomalies == analysis.caveats == []
 
 
-def test_grouped_analysis_rank_share_trend_and_outlier():
-    plan = QueryPlan(status="ready", sql="SELECT invoice_date, quantity FROM retail_lines",
-                     metric="retail_units", interpretation="Monthly units",
-                     explanation="Monthly units", date_range="2011")
-    result = {"columns": ["month", "units"], "rows": [
-        ["2011-01", "100"], ["2011-02", "110"], ["2011-03", "120"], ["2011-04", "500"]],
+def test_grouped_analysis_uses_non_additive_index_comparisons():
+    plan = QueryPlan(status="ready", sql="SELECT period, value FROM retail_observations",
+                     metric="retail_index", interpretation="Monthly index",
+                     explanation="Monthly index", date_range="2025")
+    result = {"columns": ["month", "index_value"], "rows": [
+        ["2025-01", "100"], ["2025-02", "110"], ["2025-03", "120"], ["2025-04", "500"]],
         "row_count": 4, "possibly_truncated": False}
     analysis = analyze_result(plan, result, validate_sql(plan.sql))
-    assert "2011-04 has the highest units" in analysis.findings[0]
-    assert "60.2%" in analysis.findings[0]
-    assert "increased by 400.0%" in analysis.trends[0]
-    assert "peak occurred in 2011-04" in analysis.trends[1]
-    assert "1.5×IQR" in analysis.anomalies[0]
+    assert "2025-04 has the highest index value" in analysis.findings[0]
+    assert "returned total" not in analysis.findings[0]
+    assert "increased by 400 index points (400.0%)" in analysis.trends[0]
+    assert "highest returned level occurred in 2025-04" in analysis.trends[1]
+    assert analysis.anomalies == []
 
 
-def test_quantity_not_formatted_as_currency():
-    plan = QueryPlan(status="ready", sql="SELECT description, quantity FROM retail_lines",
-                     metric="retail_units", interpretation="Units by product", explanation="Units")
-    result = {"columns": ["product", "quantity"], "rows": [["Paper", "6"], ["Book", "5"]],
+def test_index_points_are_not_formatted_as_currency():
+    plan = QueryPlan(status="ready", sql="SELECT geography, yearly_change FROM retail_observations",
+                     metric="yearly_change", interpretation="Annual change", explanation="Index points")
+    result = {"columns": ["geography", "yearly_change"], "rows": [["Germany", "6"], ["France", "5"]],
               "row_count": 2, "possibly_truncated": False}
     analysis = analyze_result(plan, result, validate_sql(plan.sql))
-    assert "Paper has the highest quantity at 6" in analysis.findings[0]
+    assert "Germany has the highest yearly change at 6 index points" in analysis.findings[0]
     assert "GBP" not in " ".join(analysis.findings)
+
+
+def test_single_dated_index_has_direct_answer_and_reference_comparison():
+    plan = QueryPlan(status="ready", sql="SELECT period, value FROM retail_observations LIMIT 1",
+                     metric="retail_index", interpretation="Latest index", explanation="Latest")
+    result = {"columns": ["period", "value"], "rows": [["2026-08-01", "99.9"]],
+              "row_count": 1, "possibly_truncated": False}
+    analysis = analyze_result(plan, result, validate_sql(plan.sql))
+    assert analysis.answer == "Retail volume index for 2026-08-01 is 99.90 (2021=100)."
+    assert analysis.findings == ["The observation is 0.10 index points below the 2021 reference level."]
+
+
+def test_anomaly_observations_use_declared_robust_threshold():
+    plan = QueryPlan(status="ready", sql="SELECT period, anomaly_score FROM retail_observations",
+                     metric="retail_anomaly_score", interpretation="Anomalies", explanation="Scores")
+    result = {"columns": ["period", "anomaly_score"],
+              "rows": [["2026-01", "4.2"], ["2026-02", "2.0"]],
+              "row_count": 2, "possibly_truncated": False}
+    analysis = analyze_result(plan, result, validate_sql(plan.sql))
+    assert analysis.anomalies == [
+        "2026-01 exceeds the declared anomaly threshold with a robust score of 4.20."
+    ]

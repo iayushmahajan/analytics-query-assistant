@@ -65,25 +65,14 @@ services:
     depends_on:
       backend:
         condition: service_started
-  retail-data:
-    profiles: [retail-data]
+  eurostat-data:
+    profiles: [eurostat-data]
     build:
       context: ./backend
-      target: ml
+      target: production
     environment:
       DATABASE_URL: postgresql://analytics_app:${APP_DB_PASSWORD}@db:5432/analytics_db
-    command: [python, -m, app.scripts.import_retail]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-  market-data:
-    profiles: [market-data]
-    build:
-      context: ./backend
-      target: ml
-    environment:
-      DATABASE_URL: postgresql://analytics_app:${APP_DB_PASSWORD}@db:5432/analytics_db
-    command: [sh, -c, "python -m app.scripts.import_market && python -m app.scripts.train_market"]
+    command: [python, -m, app.scripts.import_market]
     depends_on:
       migrate:
         condition: service_completed_successfully

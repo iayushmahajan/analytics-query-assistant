@@ -31,70 +31,83 @@ def postgres():
     owner = create_engine(url)
     reader = create_engine(reader_url)
     with owner.begin() as connection:
-        connection.execute(text(
-            "TRUNCATE retail_lines, retail_imports, market_observations, market_forecasts, "
-            "market_imports, query_history RESTART IDENTITY"
-        ))
+        connection.execute(text("TRUNCATE retail_observations, retail_imports, query_history RESTART IDENTITY"))
         connection.execute(text("""
-            INSERT INTO retail_lines(invoice_no, stock_code, description, quantity,
-                unit_price, invoice_date, country, is_sale) VALUES
-            ('1001','A1','Paper',2,10,'2011-01-01','United Kingdom',true),
-            ('1002','A1','Paper',3,20,'2011-01-02','France',true),
-            ('C1003','A1','Paper',-1,10,'2011-01-03','France',false)
+            INSERT INTO retail_observations
+            (geo_code, geography, category_code, category, period, value, status,
+             monthly_change, yearly_change, rolling_volatility, anomaly_score, is_anomaly)
+            VALUES
+            ('DE','Germany','G47','Total retail','2026-07-01',98.6,NULL,-3.3,-2.2,1.1,-4.2,true),
+            ('DE','Germany','G47','Total retail','2026-08-01',99.9,'p',1.3,-0.4,1.2,1.1,false),
+            ('EU27_2020','EU-27','G47','Total retail','2026-08-01',101.2,'p',0.4,0.7,0.7,0.6,false)
         """))
         connection.execute(text("""
-            INSERT INTO market_observations(period, value, status)
-            VALUES ('2026-08-01', 99.9, 'p')
+            INSERT INTO retail_imports
+            (source, source_sha256, source_updated_at, observation_count, missing_cells,
+             earliest_period, latest_period, geography_count, category_count)
+            VALUES ('eurostat','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                    '2026-10-06T09:00:00Z',3,0,'2026-07-01','2026-08-01',2,1)
         """))
     yield owner, reader
     owner.dispose()
     reader.dispose()
 
 
-def test_schema_is_retail_only(postgres):
+def test_schema_contains_only_current_analytics_tables(postgres):
     from alembic.autogenerate import compare_metadata
     from alembic.migration import MigrationContext
 
     owner, _ = postgres
     with owner.connect() as connection:
         assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
-        assert connection.execute(text("SELECT to_regclass('public.orders')")).scalar() is None
+        for removed in ("orders", "retail_lines", "market_observations", "market_forecasts"):
+            assert connection.execute(text("SELECT to_regclass(:name)"), {"name": f"public.{removed}"}).scalar() is None
 
 
-def test_reader_boundary_and_sale_population(postgres, monkeypatch):
+def test_reader_boundary_and_eurostat_query(postgres, monkeypatch):
     _, reader = postgres
     monkeypatch.setattr(sql_executor, "analytics_engine", reader)
     for sql in [
         "SELECT * FROM query_history",
-        "UPDATE retail_lines SET quantity=0",
-        "UPDATE market_observations SET value=0",
+        "UPDATE retail_observations SET value=0",
+        "DELETE FROM retail_imports",
         "CREATE TEMP TABLE stolen(id int)",
     ]:
         with reader.connect() as connection:
             with pytest.raises(DBAPIError):
                 connection.execute(text(sql))
             connection.rollback()
-    with reader.connect() as connection:
-        assert float(connection.execute(text("SELECT value FROM market_observations")).scalar()) == 99.9
-    plan = QueryPlan(status="ready", sql="SELECT SUM(quantity * unit_price) AS gross_sales FROM retail_lines",
-                     metric="retail_gross_sales", interpretation="Gross sales", explanation="Sale value")
-    assert execute_select_sql(prepare_query(plan))["rows"] == [["80.00"]]
+    plan = QueryPlan(
+        status="ready",
+        sql="SELECT value FROM retail_observations WHERE geo_code='DE' ORDER BY period DESC LIMIT 1",
+        metric="retail_index",
+        interpretation="Latest German index",
+        explanation="Read latest Germany row",
+    )
+    assert execute_select_sql(prepare_query(plan))["rows"] == [["99.900"]]
 
 
 def test_workflow_and_history(postgres, monkeypatch):
     owner, reader = postgres
     monkeypatch.setattr(sql_executor, "analytics_engine", reader)
     monkeypatch.setattr(query_workflow, "generate_query_plan", Mock(return_value=QueryPlan(
-        status="ready", sql="SELECT SUM(quantity * unit_price) AS gross_sales FROM retail_lines",
-        metric="retail_gross_sales", interpretation="Gross sales", explanation="Sale value")))
+        status="ready",
+        sql="SELECT value FROM retail_observations WHERE geo_code='DE' ORDER BY period DESC LIMIT 1",
+        metric="retail_index",
+        interpretation="Latest German index",
+        explanation="Read latest Germany row",
+    )))
     with Session(owner) as db:
-        result, status = query_workflow.run_analysis(QueryRequest(question="Gross sales?"), db, "postgres-test")
-        assert status == 200 and result.rows == [["80.00"]]
-        assert result.analysis.answer == "Gross sales across all available dates is GBP 80.00."
+        result, status = query_workflow.run_analysis(
+            QueryRequest(question="What is Germany's latest retail index?"), db, "postgres-test"
+        )
+        assert status == 200 and result.rows == [["99.900"]]
+        assert result.dataset == "eurostat"
+        assert "99.90" in result.analysis.answer
 
 
 def test_owner_credentials_fail_closed(postgres, monkeypatch):
     owner, _ = postgres
     monkeypatch.setattr(sql_executor, "analytics_engine", owner)
     with pytest.raises(SQLExecutionError):
-        execute_select_sql(validate_sql("SELECT COUNT(*) FROM retail_lines"))
+        execute_select_sql(validate_sql("SELECT COUNT(*) FROM retail_observations"))

@@ -8,9 +8,9 @@ router = APIRouter(prefix="/examples", tags=["examples"])
 @router.get("", response_model=list[ExampleItem])
 def get_examples():
     return [
-        ExampleItem(id=1, question="What were total gross sales across all available dates?"),
-        ExampleItem(id=2, question="Show monthly gross sales during 2011."),
-        ExampleItem(id=3, question="Which countries generated the most gross sales?"),
-        ExampleItem(id=4, question="Which products sold the most units?"),
-        ExampleItem(id=5, question="How many sales invoices were there by month in 2011?"),
+        ExampleItem(id=1, question="How has Germany's total retail index changed since 2021?"),
+        ExampleItem(id=2, question="Compare Germany and the EU-27 over the latest 12 months."),
+        ExampleItem(id=3, question="Which EU countries have the strongest latest annual change?"),
+        ExampleItem(id=4, question="Compare Germany's four retail categories in the latest month."),
+        ExampleItem(id=5, question="Show unusual German retail movements since 2024."),
     ]

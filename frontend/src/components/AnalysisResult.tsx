@@ -58,7 +58,7 @@ export function AnalysisResult({
                       {label(column)}
                     </p>
                     <p className="mt-2 text-2xl font-semibold tabular-nums text-violet-700">
-                      {formatCell(result.rows[0][i], column, metric?.currency ?? "GBP")}
+                      {formatCell(result.rows[0][i], column, metric?.currency)}
                     </p>
                   </div>
                 ),
@@ -108,7 +108,7 @@ export function AnalysisResult({
             <Visualization columns={result.columns} rows={result.rows} />
           </Suspense>
         ) : (
-          <ResultsTableCard columns={result.columns} rows={result.rows} currency={metric?.currency ?? "GBP"} />
+          <ResultsTableCard columns={result.columns} rows={result.rows} currency={metric?.currency} />
         )}
       </section>
       {analysis && (
@@ -158,10 +158,10 @@ export function AnalysisResult({
           {[
             ["Metric definition", metric?.calculation],
             ["Date range", plan?.date_range],
-            ["Currency", "GBP · UCI historic prices"],
-            ["Canonical statuses", metric?.included_statuses.join(", ") || "Not applicable"],
+            ["Unit", "Retail volume index (2021=100); changes are index points"],
+            ["Observation status", metric?.included_statuses.join(", ") || "Official and provisional values may be included"],
             [
-              "Applied filters (AI interpretation)",
+              "Applied filters",
               plan?.filters.join("; ") || "No additional filters",
             ],
             ["Source tables (SQL verified)", plan?.source_tables.join(", ")],

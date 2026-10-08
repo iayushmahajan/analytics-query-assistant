@@ -42,7 +42,7 @@ export function HistoryCard({
                   {item.question}
                 </span>
                 <span className="mt-1 block text-xs text-slate-500">
-                  Retail · {item.status.replaceAll("_", " ")} · {item.row_count ?? 0}{" "}
+                  Eurostat · {item.status.replaceAll("_", " ")} · {item.row_count ?? 0}{" "}
                   {item.row_count === 1 ? "row" : "rows"} ·{" "}
                   {new Date(item.created_at).toLocaleDateString()}
                 </span>
