@@ -106,7 +106,9 @@ it("restores snapshots without another model call", async () => {
 });
 it("does not discard success when history refresh fails", async () => {
   render(<App />);
-  await screen.findByText(/AI ready/);
+  await screen.findByText("UCI + Eurostat");
+  expect(screen.queryByText(/AI ready/i)).not.toBeInTheDocument();
+  expect(screen.getByText("Query historical transactions")).toBeInTheDocument();
   vi.mocked(api.get).mockRejectedValue(new Error("history unavailable"));
   await submit();
   expect(

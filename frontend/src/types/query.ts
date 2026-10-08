@@ -96,6 +96,7 @@ export type MarketForecast = {
   source: string;
   source_updated_at: string | null;
   source_sha256: string | null;
+  observation_count: number;
   missing_periods: number;
   target_period: string | null;
   training_cutoff: string | null;

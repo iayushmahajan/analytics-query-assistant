@@ -109,6 +109,7 @@ class MarketForecast(BaseModel):
     source: str = "Eurostat · sts_trtu_m"
     source_updated_at: datetime | None = None
     source_sha256: str | None = None
+    observation_count: int = 0
     missing_periods: int = 0
     target_period: date | None = None
     training_cutoff: date | None = None
@@ -138,7 +139,7 @@ class MarketForecast(BaseModel):
 def market_forecast():
     with analytics_engine.connect() as connection:
         imported = connection.execute(text("""
-            SELECT source_updated_at, source_sha256, missing_periods
+            SELECT source_updated_at, source_sha256, observation_count, missing_periods
             FROM market_imports ORDER BY imported_at DESC LIMIT 1
         """)).one_or_none()
         row = connection.execute(text("""
@@ -153,7 +154,8 @@ def market_forecast():
     provenance = {
         "source_updated_at": imported[0] if imported else None,
         "source_sha256": imported[1] if imported else None,
-        "missing_periods": imported[2] if imported else 0,
+        "observation_count": imported[2] if imported else 0,
+        "missing_periods": imported[3] if imported else 0,
     }
     if not row:
         return MarketForecast(available=False, **provenance)

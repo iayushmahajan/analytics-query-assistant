@@ -5,14 +5,19 @@ export const marketForecast: MarketForecast = {
   indicator: "Seasonally and calendar adjusted retail trade volume index",
   unit: "Index, 2021=100", source: "Eurostat · sts_trtu_m",
   source_updated_at: "2026-10-06T09:00:00Z", source_sha256: "1234567890abcdef",
-  missing_periods: 36, target_period: "2026-09-01", training_cutoff: "2026-08-01",
-  predicted_index: 105.2, prediction_lower: 101.1, prediction_upper: 109.3,
-  baseline_index: 104.8, method: "gradient_boosting", baseline_method: "last_value",
+  observation_count: 392, missing_periods: 36, target_period: "2026-09-01", training_cutoff: "2026-08-01",
+  predicted_index: 113.2, prediction_lower: 110.1, prediction_upper: 116.3,
+  baseline_index: 112, method: "gradient_boosting", baseline_method: "last_value",
   ml_validation_mae: 1.8, baseline_validation_mae: 2.1, test_mae: 2.2,
   baseline_test_mae: 2.6, test_wape: 0.021, test_bias: -0.4,
   interval_coverage: 0.79, confidence: "supported", validation_months: 24,
   test_months: 24, latest_observation_status: "p", trained_at: "2026-10-08T10:00:00Z",
-  history: [], backtest: [{ period: "2026-08-01", actual: 104.4, predicted: 103.8 }],
+  history: Array.from({ length: 13 }, (_, index) => ({
+    period: new Date(Date.UTC(2025, 7 + index, 1)).toISOString().slice(0, 10),
+    actual: 100 + index,
+    predicted: null,
+  })),
+  backtest: [{ period: "2026-08-01", actual: 112, predicted: 111.4 }],
 };
 export const result: QueryResponse = {
   id: 1,

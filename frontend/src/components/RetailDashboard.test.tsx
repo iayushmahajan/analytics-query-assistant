@@ -18,21 +18,25 @@ const overview: RetailOverview = {
 it("shows the current Germany forecast with out-of-sample evidence", () => {
   render(<RetailDashboard overview={overview} forecast={forecast} failed={false} />);
   expect(screen.getAllByText("£12,345").length).toBeGreaterThan(0);
-  expect(screen.getByText("Retail volume outlook")).toBeInTheDocument();
-  expect(screen.getByText("Germany retail trade volume")).toBeInTheDocument();
+  expect(screen.getByText("Historical sales analysis")).toBeInTheDocument();
+  expect(screen.getByText("Germany retail outlook")).toBeInTheDocument();
+  expect(screen.getByText(/independent German market series/)).toBeInTheDocument();
+  expect(screen.getByText("+1.0 points")).toBeInTheDocument();
+  expect(screen.getByText("+12.0 points")).toBeInTheDocument();
   expect(screen.getByText("Gradient boosting")).toBeInTheDocument();
   expect(screen.getByText("2.1%")).toBeInTheDocument();
-  expect(screen.getByText("Latest Eurostat value is provisional")).toBeInTheDocument();
-  expect(screen.getByText(/not a guaranteed value/)).toBeInTheDocument();
+  expect(screen.getByText(/Aug 2026 · provisional/)).toBeInTheDocument();
+  expect(screen.getByText(/has no products, customers/)).toBeInTheDocument();
+  expect(screen.getByText(/not a guaranteed result/)).toBeInTheDocument();
 });
 
 it("explains how to build a missing market forecast", () => {
   render(<RetailDashboard overview={overview} forecast={{ ...forecast, available: false }} failed={false} />);
-  expect(screen.getByText("Market forecast is ready to build")).toBeInTheDocument();
+  expect(screen.getByText("Germany forecast is ready to build")).toBeInTheDocument();
 });
 
 it("keeps a forecast request failure separate from the retail overview", () => {
   render(<RetailDashboard overview={overview} forecast={null} failed={false} />);
-  expect(screen.getByText("Sales at a glance")).toBeInTheDocument();
-  expect(screen.getByText("Loading market forecast")).toBeInTheDocument();
+  expect(screen.getByText("Historical sales analysis")).toBeInTheDocument();
+  expect(screen.getByText("Loading Germany market data")).toBeInTheDocument();
 });

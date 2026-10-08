@@ -3,7 +3,6 @@ import { api, errorMessage } from "./lib/api";
 import type {
   ClarificationTurn,
   ExampleItem,
-  Health,
   HistoryItem,
   QueryResponse,
   RetailOverview,
@@ -23,10 +22,8 @@ function App() {
   const [question, setQuestion] = useState("");
   const [examples, setExamples] = useState<ExampleItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [health, setHealth] = useState<Health | null>(null);
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [busy, setBusy] = useState(false);
-  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [answer, setAnswer] = useState("");
@@ -41,25 +38,19 @@ function App() {
     void Promise.allSettled([
       api.get<ExampleItem[]>("/examples", config),
       api.get<HistoryItem[]>("/history", config),
-      api.get<Health>("/health", {
-        ...config,
-        validateStatus: (status) => status === 200 || status === 503,
-      }),
       api.get<RetailOverview>("/retail/overview", config),
       api.get<MarketForecast>("/retail/market-forecast", config),
-    ]).then(([ex, hist, state, retail, forecast]) => {
+    ]).then(([ex, hist, retail, forecast]) => {
       if (controller.signal.aborted) return;
       if (ex.status === "fulfilled") setExamples(ex.value.data);
       if (hist.status === "fulfilled") setHistory(hist.value.data);
-      if (state.status === "fulfilled") setHealth(state.value.data);
       if (retail.status === "fulfilled") setOverview(retail.value.data);
       else setDashboardFailed(true);
       if (forecast.status === "fulfilled") setForecast(forecast.value.data);
-      if ([ex, hist, state].some((item) => item.status === "rejected"))
+      if ([ex, hist].some((item) => item.status === "rejected"))
         setNotice(
           "Some workspace data could not load. You can retry history below or reload the page.",
         );
-      setInitializing(false);
     });
     return () => controller.abort();
   }, []);
@@ -128,19 +119,19 @@ function App() {
       <aside className="app-sidebar" aria-label="Workspace navigation">
         <div className="brand-mark" aria-hidden="true">R<span>•</span></div>
         <p className="sidebar-label">WORKSPACE</p>
-        <a href="#overview" className="nav-item active"><span>▦</span> Overview</a>
-        <a href="#forecast" className="nav-item"><span>⌁</span> Forecast lab</a>
-        <a href="#ask" className="nav-item"><span>◌</span> Ask the data</a>
+        <a href="#sales" className="nav-item active"><span>▦</span> Sales</a>
+        <a href="#forecast" className="nav-item"><span>⌁</span> Germany forecast</a>
+        <a href="#analyst" className="nav-item"><span>◌</span> Sales analyst</a>
         <div className="sidebar-bottom"><span className="sidebar-dot" /> Analytics workspace<br/><small>Demand forecasting</small></div>
       </aside>
       <main className="app-main">
-      <header className="app-topbar"><div><strong>Retail Analytics &amp; Demand Forecasting</strong><span> / Platform</span></div>
-        <span role="status" className="service-status">{initializing ? "Checking services…" : health?.status === "ok" ? "AI ready" : health?.provider === "unavailable" || health?.provider === "model_not_loaded" || health?.provider === "model_not_available" || health?.provider === "not_configured" ? "AI provider unavailable" : "Service attention needed"}</span>
+      <header className="app-topbar"><div><strong>Retail Analytics &amp; Demand Forecasting</strong><span> Platform</span></div>
+        <span className="data-source-label">UCI + Eurostat</span>
       </header>
       <Suspense fallback={<div className="dashboard-empty">Loading retail dashboard…</div>}>
         <RetailDashboard overview={overview} forecast={forecast} failed={dashboardFailed} />
       </Suspense>
-      <div className="analyst-section" id="ask"><div className="analyst-heading"><p className="eyebrow">ANALYST / NATURAL LANGUAGE</p><h2>Ask the data</h2><p>Explore a metric, inspect the SQL, and see evidence from the returned rows.</p></div>
+      <section className="analyst-section workspace-section" id="analyst"><div className="analyst-heading"><p className="eyebrow">SALES ANALYST</p><h2>Query historical transactions</h2><p>Ask a question about the UCI sales records, then review the result, chart and generated SQL.</p></div>
       <div className="space-y-5">
         <QueryInputCard
           question={question}
@@ -249,8 +240,8 @@ function App() {
           onSelectHistoryItem={(item) => void restore(item)}
         />
       </div>
-      </div>
-      <footer className="app-footer">UCI Online Retail (CC BY 4.0) powers historical transaction analysis; Eurostat powers the current Germany retail-volume outlook. AI questions go to the configured provider; do not enter personal or confidential information.</footer>
+      </section>
+      <footer className="app-footer">Sales dashboard: UCI Online Retail transactions from 2010–2011, reported in GBP. Germany forecast: Eurostat’s monthly retail trade volume index. The sales analyst queries only the UCI transaction records. Do not enter personal or confidential information.</footer>
       </main>
     </div>
   );
