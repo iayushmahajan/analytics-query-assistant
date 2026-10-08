@@ -26,13 +26,12 @@ export function QueryInputCard({
       >
         <label
           htmlFor="question"
-          className="block text-lg font-semibold text-white"
+          className="block text-lg font-semibold text-slate-900"
         >
           What would you like to understand?
         </label>
-        <p id="question-hint" className="mt-1 text-sm text-slate-400">
-          Ask about revenue, orders, customers or product sales. Revenue
-          includes completed orders.
+        <p id="question-hint" className="mt-1 text-sm text-slate-500">
+          Ask about historical gross sales, units, invoices, products or countries. This dataset ends in 2011.
         </p>
         <textarea
           id="question"
@@ -41,7 +40,7 @@ export function QueryInputCard({
           value={question}
           disabled={isLoading}
           onChange={(event) => onQuestionChange(event.target.value)}
-          placeholder="How did monthly revenue change during 2025?"
+          placeholder="How did monthly gross sales change during 2011?"
           className="input mt-4 min-h-24"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -57,7 +56,7 @@ export function QueryInputCard({
             Clear results
           </button>
           {isLoading && (
-            <span role="status" className="text-sm text-slate-400">
+            <span role="status" className="text-sm text-slate-500">
               Interpreting, querying and calculating insights…
             </span>
           )}

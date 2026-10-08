@@ -33,17 +33,23 @@ def _json_content(content: str) -> str:
 def structured_completion(messages: list[dict[str, str]], contract: type[T]) -> T:
     if not settings.AI_API_URL:
         raise ProviderError("provider_not_configured", "The AI provider is not configured.", 503)
+    if settings.AI_PROVIDER == "groq" and not settings.AI_API_KEY:
+        raise ProviderError("provider_not_configured", "The AI provider is not configured.", 503)
+    headers = {"Authorization": f"Bearer {settings.AI_API_KEY}"} if settings.AI_PROVIDER == "groq" else None
+    body = {
+        "model": settings.AI_MODEL,
+        "messages": messages,
+        "temperature": 0,
+        "max_tokens": 2500,
+    }
+    if settings.AI_PROVIDER == "groq":
+        body["response_format"] = {"type": "json_object"}
     try:
         with httpx.Client(timeout=settings.AI_REQUEST_TIMEOUT_SECONDS) as client:
-            response = client.post(
-                settings.AI_API_URL,
-                json={
-                    "model": settings.AI_MODEL,
-                    "messages": messages,
-                    "temperature": 0,
-                    "max_tokens": 2500,
-                },
-            )
+            kwargs = {"json": body}
+            if headers:
+                kwargs["headers"] = headers
+            response = client.post(settings.AI_API_URL, **kwargs)
     except httpx.TimeoutException as exc:
         raise ProviderError("provider_timeout", "The AI provider timed out. Please try again.", 504) from exc
     except httpx.HTTPError as exc:

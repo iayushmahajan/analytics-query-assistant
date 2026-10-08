@@ -23,18 +23,19 @@ export function Visualization({
   if (!shape) return null;
   const common = (
     <>
-      <CartesianGrid stroke="#263449" vertical={false} />
+      <CartesianGrid stroke="#e2e8f0" vertical={false} />
       <XAxis
         dataKey="name"
-        tick={{ fill: "#94a3b8", fontSize: 11 }}
+        tick={{ fill: "#64748b", fontSize: 11 }}
         minTickGap={24}
       />
-      <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} width={72} />
+      <YAxis tick={{ fill: "#64748b", fontSize: 11 }} width={72} />
       <Tooltip
         contentStyle={{
-          background: "#0f172a",
-          border: "1px solid #334155",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
           borderRadius: 8,
+          color: "#0f172a",
         }}
       />
     </>
@@ -43,7 +44,7 @@ export function Visualization({
     <figure
       aria-label={`${shape.kind === "line" ? "Line" : "Bar"} chart of ${label(shape.measure)} by ${label(shape.dimension)}`}
     >
-      <figcaption className="mb-4 text-sm capitalize text-slate-300">
+      <figcaption className="mb-4 text-sm capitalize text-slate-600">
         {label(shape.measure)} by {label(shape.dimension)} · values from
         returned rows
       </figcaption>
@@ -56,7 +57,7 @@ export function Visualization({
                 type="monotone"
                 dataKey="value"
                 name={label(shape.measure)}
-                stroke="#2dd4bf"
+                stroke="#5b3df5"
                 strokeWidth={2}
                 isAnimationActive={false}
               />
@@ -67,7 +68,7 @@ export function Visualization({
               <Bar
                 dataKey="value"
                 name={label(shape.measure)}
-                fill="#2dd4bf"
+                fill="#5b3df5"
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
               />

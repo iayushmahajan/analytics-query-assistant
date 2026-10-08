@@ -1,4 +1,4 @@
-# Analytics workspace frontend
+# Retail Analytics & Demand Forecasting Platform frontend
 
 React + strict TypeScript + Vite + Tailwind + Recharts. See the [project README](../README.md) for architecture, API contracts, configuration and database setup.
 

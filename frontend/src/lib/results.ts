@@ -6,14 +6,14 @@ export function numeric(value: Cell): number | null {
   return Number.isFinite(number) ? number : null;
 }
 export const label = (value: string) => value.replaceAll("_", " ");
-export function formatCell(value: Cell, column: string): string {
+export function formatCell(value: Cell, column: string, currency = "GBP"): string {
   if (value === null) return "—";
   const number = numeric(value);
   if (number !== null) {
-    if (/revenue|amount|price|aov|average_order_value/i.test(column))
+    if (/revenue|sales|amount|price|aov|average_order_value/i.test(column))
       return new Intl.NumberFormat("en", {
         style: "currency",
-        currency: "EUR",
+        currency,
       }).format(number);
     if (/percent|pct|change/i.test(column))
       return `${new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(number)}%`;

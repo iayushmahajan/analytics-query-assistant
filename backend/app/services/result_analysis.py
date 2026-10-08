@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from statistics import quantiles
 
 from app.api.schemas.query import QueryPlan, ResultAnalysis
-from app.constants.metrics import METRICS
+from app.constants.metrics import RETAIL_METRICS
 from app.core.config import settings
 from app.services.sql_validator import ValidatedSQL
 
@@ -71,35 +71,17 @@ def _is_temporal(column: str, labels: list[str]) -> bool:
 
 
 def _follow_ups(metric_id: str) -> list[str]:
-    if metric_id in {"revenue", "completed_revenue"}:
-        return [
-            "Show monthly completed revenue for 2025.",
-            "Break completed revenue down by country.",
-            "Which product categories generate the most completed revenue?",
-        ]
-    if metric_id in {"order_count", "completed_orders"}:
-        return [
-            "Show monthly order counts for 2025.",
-            "Break completed orders down by country.",
-            "Compare order counts by status.",
-        ]
-    if metric_id == "average_order_value":
-        return [
-            "Show monthly average completed order value for 2025.",
-            "Compare average completed order value by country.",
-        ]
-    if metric_id == "customer_count":
-        return ["Show monthly customer registrations for 2025.", "Show registered customers by country."]
     return [
-        "Show this result by month for 2025.",
-        "Compare this result by country.",
+        "Show monthly gross sales during 2011.",
+        "Which countries generated the most gross sales?",
+        "Which products sold the most units?",
     ]
 
 
 def analyze_result(plan: QueryPlan, result: dict, validated: ValidatedSQL) -> ResultAnalysis:
     """Calculate concise insights locally from the bounded query result."""
     context = build_result_context(result, validated)
-    metric = METRICS[plan.metric]
+    metric = RETAIL_METRICS[plan.metric]
     scope = plan.date_range.lower() if plan.date_range != "All available dates" else "all available dates"
     rows = context["rows"]
     columns = context["columns"]
@@ -162,7 +144,7 @@ def analyze_result(plan: QueryPlan, result: dict, validated: ValidatedSQL) -> Re
     top_row, top_value = ranked[0]
     top_label = str(top_row[dimension_index]) if dimension_index is not None else "The highest row"
     top_text = f"{top_label} has the highest {measure_name} at {_format_value(top_value, currency)}"
-    additive = metric.id != "average_order_value" and all(value >= 0 for _, value in points)
+    additive = all(value >= 0 for _, value in points)
     total = sum((value for _, value in points), Decimal(0))
     if additive and total > 0:
         top_text += f", representing {(top_value / total * 100):.1f}% of the returned total"

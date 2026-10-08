@@ -16,7 +16,9 @@ services:
       timeout: 3s
       retries: 20
   migrate:
-    build: ./backend
+    build:
+      context: ./backend
+      target: production
     environment:
       DATABASE_URL: postgresql://analytics_app:${APP_DB_PASSWORD}@db:5432/analytics_db
     command: [sh, -c, "alembic upgrade head && python -m app.scripts.apply_grants"]
@@ -24,13 +26,16 @@ services:
       db:
         condition: service_healthy
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: production
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://analytics_app:${APP_DB_PASSWORD}@db:5432/analytics_db
       ANALYTICS_DATABASE_URL: postgresql://analytics_reader:${ANALYTICS_DB_PASSWORD}@db:5432/analytics_db
       AI_PROVIDER: ${AI_PROVIDER:-foundry_local}
       AI_MODEL: ${AI_MODEL:-phi-4-mini}
+      AI_API_KEY: ${AI_API_KEY:-}
       AI_API_URL: ${AI_API_URL:-}
       AI_REQUEST_TIMEOUT_SECONDS: ${AI_REQUEST_TIMEOUT_SECONDS:-120}
       MAX_SQL_ROWS: ${MAX_SQL_ROWS:-100}
@@ -60,5 +65,16 @@ services:
     depends_on:
       backend:
         condition: service_started
+  retail-data:
+    profiles: [retail-data]
+    build:
+      context: ./backend
+      target: ml
+    environment:
+      DATABASE_URL: postgresql://analytics_app:${APP_DB_PASSWORD}@db:5432/analytics_db
+    command: [python, -m, app.scripts.import_retail]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 volumes:
   postgres_data:

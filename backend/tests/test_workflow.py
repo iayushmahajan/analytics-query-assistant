@@ -14,22 +14,22 @@ from app.services.sql_generator import ProviderError
 def stages(monkeypatch):
     plan = QueryPlan(
         status="ready",
-        sql="SELECT SUM(total_amount) AS revenue FROM orders WHERE status='completed'",
-        metric="revenue",
-        interpretation="Completed revenue",
-        explanation="Sum completed order totals",
+        sql="SELECT SUM(quantity * unit_price) AS gross_sales FROM retail_lines",
+        metric="retail_gross_sales",
+        interpretation="Gross sales",
+        explanation="Sum sale-line totals",
     )
     generate = Mock(return_value=plan)
     execute = Mock(
         return_value={
-            "columns": ["revenue"],
+            "columns": ["gross_sales"],
             "rows": [["123.45"]],
             "row_count": 1,
             "execution_time_ms": 2,
             "possibly_truncated": False,
         }
     )
-    analyze = Mock(return_value=ResultAnalysis(answer="Completed revenue is EUR 123.45."))
+    analyze = Mock(return_value=ResultAnalysis(answer="Gross sales is GBP 123.45."))
     for name, mock in [
         ("generate_query_plan", generate),
         ("execute_select_sql", execute),
@@ -40,13 +40,13 @@ def stages(monkeypatch):
 
 
 def test_success_snapshot_restore_and_continuation(client, stages):
-    result = client.post("/query", json={"question": "Revenue?"})
+    result = client.post("/query", json={"question": "Gross sales?"})
     assert result.status_code == 200
     data = result.json()
     assert data["status"] == "success"
-    assert data["plan"]["source_tables"] == ["orders"]
+    assert data["plan"]["source_tables"] == ["retail_lines"]
     assert client.get(f"/history/{data['id']}").json() == data
-    assert client.get("/history").json()[0]["question"] == "Revenue?"
+    assert client.get("/history").json()[0]["question"] == "Gross sales?"
     assert result.headers["x-request-id"] == data["request_id"]
 
 
@@ -56,7 +56,7 @@ def test_clarification_never_executes_and_can_continue(client, stages):
         status="needs_clarification",
         interpretation="Performance is undefined",
         explanation="Choose a metric",
-        clarification_question="Revenue or order count?",
+        clarification_question="Gross sales or invoice count?",
     )
     data = client.post("/query", json={"question": "Performance?"}).json()
     assert data["status"] == "needs_clarification"
@@ -64,8 +64,8 @@ def test_clarification_never_executes_and_can_continue(client, stages):
     analyze.assert_not_called()
     generate.return_value = QueryPlan(
         status="ready",
-        sql="SELECT COUNT(*) AS orders FROM orders",
-        metric="order_count",
+        sql="SELECT COUNT(DISTINCT invoice_no) AS invoices FROM retail_lines",
+        metric="retail_invoices",
         interpretation="All orders",
         explanation="Count orders",
     )
@@ -73,11 +73,11 @@ def test_clarification_never_executes_and_can_continue(client, stages):
         "/query",
         json={
             "question": "Performance?",
-            "clarification": [{"question": "Revenue or order count?", "answer": "Order count"}],
+            "clarification": [{"question": "Gross sales or invoice count?", "answer": "Invoice count"}],
         },
     )
     assert result.json()["status"] == "success"
-    assert generate.call_args.args[0].clarification[0].answer == "Order count"
+    assert generate.call_args.args[0].clarification[0].answer == "Invoice count"
 
 
 def test_blocked_sql_never_executes(client, stages):
@@ -90,7 +90,7 @@ def test_blocked_sql_never_executes(client, stages):
 @pytest.mark.parametrize("code,http", [("execution_failed", 422), ("query_timeout", 504)])
 def test_execution_failure_saved(client, db, stages, code, http):
     stages[1].side_effect = SQLExecutionError(code)
-    result = client.post("/query", json={"question": "Revenue?"})
+    result = client.post("/query", json={"question": "Gross sales?"})
     assert result.status_code == http
     assert result.json()["error"]["code"] == code
     assert db.query(QueryHistory).count() == 1
@@ -108,7 +108,7 @@ def test_execution_failure_saved(client, db, stages, code, http):
 )
 def test_provider_failure_saved(client, db, stages, code, http):
     stages[0].side_effect = ProviderError(code, "Public error", http)
-    result = client.post("/query", json={"question": "Revenue?"})
+    result = client.post("/query", json={"question": "Gross sales?"})
     assert result.status_code == http
     assert result.json()["error"]["code"] == code
     assert db.query(QueryHistory).count() == 1
@@ -117,7 +117,7 @@ def test_provider_failure_saved(client, db, stages, code, http):
 
 def test_analysis_failure_preserves_results(client, stages):
     stages[2].side_effect = ValueError("Could not calculate insights")
-    data = client.post("/query", json={"question": "Revenue?"}).json()
+    data = client.post("/query", json={"question": "Gross sales?"}).json()
     assert data["status"] == "success" and data["rows"] == [["123.45"]]
     assert data["analysis"] is None and data["warnings"]
 
@@ -126,7 +126,7 @@ def test_history_failure_rolls_back(client, db, stages, monkeypatch):
     rollback = Mock(wraps=db.rollback)
     monkeypatch.setattr(db, "commit", Mock(side_effect=SQLAlchemyError("private internal details")))
     monkeypatch.setattr(db, "rollback", rollback)
-    data = client.post("/query", json={"question": "Revenue?"}).json()
+    data = client.post("/query", json={"question": "Gross sales?"}).json()
     assert data["status"] == "success" and data["id"] is None
     assert "private" not in str(data)
     rollback.assert_called_once()

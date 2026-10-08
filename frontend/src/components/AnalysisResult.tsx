@@ -27,7 +27,7 @@ export function AnalysisResult({
     <div className="space-y-5">
       <section className="panel" aria-label="Analysis answer">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-xl font-semibold text-slate-900">
             {metric?.name ?? "Analysis"}
           </h2>
           <span className="badge">
@@ -35,13 +35,13 @@ export function AnalysisResult({
             {(result.timings.total_ms / 1000).toFixed(1)}s processing
           </span>
         </div>
-        <p className="mt-3 text-lg leading-relaxed text-slate-100">
+        <p className="mt-3 text-lg leading-relaxed text-slate-800">
           {analysis?.answer ??
             (result.row_count
               ? "Query complete. Explore the returned data below."
               : "No matching records were returned.")}
         </p>
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-slate-500">
           SQL passed structural checks. Interpretation is model-generated;
           result insights are calculated from the returned data.
         </p>
@@ -51,14 +51,14 @@ export function AnalysisResult({
               (column, i) =>
                 numeric(result.rows[0][i]) !== null && (
                   <div
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-4"
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                     key={column}
                   >
-                    <p className="text-sm capitalize text-slate-400">
+                    <p className="text-sm capitalize text-slate-500">
                       {label(column)}
                     </p>
-                    <p className="mt-2 text-2xl font-semibold tabular-nums text-teal-300">
-                      {formatCell(result.rows[0][i], column)}
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-violet-700">
+                      {formatCell(result.rows[0][i], column, metric?.currency ?? "GBP")}
                     </p>
                   </div>
                 ),
@@ -66,7 +66,7 @@ export function AnalysisResult({
           </div>
         )}
         {result.possibly_truncated && (
-          <p className="mt-4 text-sm text-amber-300">
+          <p className="mt-4 text-sm text-amber-700">
             The result reached the row cap and may be incomplete. Narrow the
             question before drawing conclusions.
           </p>
@@ -74,7 +74,7 @@ export function AnalysisResult({
         {result.warnings.map((warning) => (
           <p
             role="status"
-            className="mt-3 text-sm text-amber-300"
+            className="mt-3 text-sm text-amber-700"
             key={warning}
           >
             {warning}
@@ -108,7 +108,7 @@ export function AnalysisResult({
             <Visualization columns={result.columns} rows={result.rows} />
           </Suspense>
         ) : (
-          <ResultsTableCard columns={result.columns} rows={result.rows} />
+          <ResultsTableCard columns={result.columns} rows={result.rows} currency={metric?.currency ?? "GBP"} />
         )}
       </section>
       {analysis && (
@@ -125,10 +125,10 @@ export function AnalysisResult({
             .filter(([, items]) => items.length)
             .map(([title, items]) => (
               <div className="mt-4" key={title}>
-                <h3 className="text-sm font-semibold text-slate-300">
+                <h3 className="text-sm font-semibold text-slate-600">
                   {title}
                 </h3>
-                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-400">
+                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-500">
                   {items.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
@@ -153,12 +153,12 @@ export function AnalysisResult({
         <summary className="cursor-pointer font-semibold">
           Interpretation & query scope
         </summary>
-        <p className="mt-3 text-sm text-slate-300">{plan?.interpretation}</p>
+        <p className="mt-3 text-sm text-slate-600">{plan?.interpretation}</p>
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
           {[
             ["Metric definition", metric?.calculation],
             ["Date range", plan?.date_range],
-            ["Currency", "EUR · single-currency dataset"],
+            ["Currency", "GBP · UCI historic prices"],
             ["Canonical statuses", metric?.included_statuses.join(", ") || "Not applicable"],
             [
               "Applied filters (AI interpretation)",
@@ -168,7 +168,7 @@ export function AnalysisResult({
           ].map(([name, value]) => (
             <div key={name}>
               <dt className="text-slate-500">{name}</dt>
-              <dd className="mt-1 break-words text-slate-200">{value}</dd>
+              <dd className="mt-1 break-words text-slate-700">{value}</dd>
             </div>
           ))}
         </dl>

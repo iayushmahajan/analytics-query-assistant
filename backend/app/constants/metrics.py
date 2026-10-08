@@ -3,17 +3,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 MetricId = Literal[
-    "revenue",
-    "completed_revenue",
-    "order_count",
-    "completed_orders",
-    "average_order_value",
-    "customer_count",
-    "product_sales",
-    "category_sales",
-    "country_sales",
+    "retail_gross_sales",
+    "retail_units",
+    "retail_invoices",
+    "retail_product_sales",
+    "retail_country_sales",
 ]
-CURRENCY = "EUR"
 
 
 class Metric(BaseModel):
@@ -30,101 +25,15 @@ class Metric(BaseModel):
     aliases: list[str] = []
 
 
-def metric(
-    id: MetricId,
-    name: str,
-    calculation: str,
-    tables: list[str],
-    *,
-    completed=True,
-    money=True,
-    date="orders.order_date",
-    aliases=None,
-) -> Metric:
-    return Metric(
-        id=id,
-        name=name,
-        description=f"{name} across the selected date range and dimensions.",
-        calculation=calculation,
-        source_tables=tables,
-        date_field=date,
-        included_statuses=["completed"] if completed else ["pending", "completed", "cancelled"],
-        excluded_statuses=["pending", "cancelled"] if completed else [],
-        currency=CURRENCY if money else None,
-        aliases=aliases or [],
-    )
-
-
-METRICS = {
+# Positive, priced, non-cancelled invoice lines are gross sales.
+# The source does not establish net revenue or refunds.
+RETAIL_METRICS = {
     m.id: m
     for m in [
-        metric(
-            "revenue",
-            "Revenue",
-            "SUM(orders.total_amount) WHERE orders.status = 'completed'; never sum order totals after a line-item join",
-            ["orders"],
-            aliases=["sales", "sales revenue"],
-        ),
-        metric(
-            "completed_revenue",
-            "Completed revenue",
-            "SUM(orders.total_amount) WHERE orders.status = 'completed'",
-            ["orders"],
-        ),
-        metric(
-            "order_count",
-            "Order count",
-            "COUNT(DISTINCT orders.id), all statuses unless explicitly filtered",
-            ["orders"],
-            completed=False,
-            money=False,
-            aliases=["orders"],
-        ),
-        metric(
-            "completed_orders",
-            "Completed orders",
-            "COUNT(DISTINCT orders.id) WHERE orders.status = 'completed'",
-            ["orders"],
-            money=False,
-        ),
-        metric(
-            "average_order_value",
-            "Average order value",
-            "SUM(orders.total_amount) / NULLIF(COUNT(DISTINCT orders.id), 0) on completed orders at order grain",
-            ["orders"],
-            aliases=["AOV"],
-        ),
-        metric(
-            "customer_count",
-            "Customer count",
-            "COUNT(DISTINCT customers.id); all registered customers unless explicitly filtered",
-            ["customers"],
-            completed=False,
-            money=False,
-            date="customers.created_at",
-        ),
-        metric(
-            "product_sales",
-            "Product sales",
-            "SUM(order_items.quantity * order_items.unit_price) joined to completed orders, grouped by product; quantity means SUM(order_items.quantity)",
-            ["orders", "order_items", "products"],
-        ),
-        metric(
-            "category_sales",
-            "Category sales",
-            "SUM(order_items.quantity * order_items.unit_price) joined to completed orders, grouped by category",
-            ["orders", "order_items", "products", "categories"],
-        ),
-        metric(
-            "country_sales",
-            "Country / region sales",
-            "SUM(orders.total_amount) on completed orders joined to customers and countries, grouped by country or region",
-            ["orders", "customers", "countries"],
-        ),
+        Metric(id="retail_gross_sales", name="Gross sales", description="Positive priced, non-cancelled invoice lines.", calculation="SUM(retail_lines.quantity * retail_lines.unit_price) on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], currency="GBP", aliases=["sales", "sales value"]),
+        Metric(id="retail_units", name="Units sold", description="Units on sale lines.", calculation="SUM(retail_lines.quantity) on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], aliases=["quantity"]),
+        Metric(id="retail_invoices", name="Sales invoices", description="Distinct invoices with sale lines.", calculation="COUNT(DISTINCT retail_lines.invoice_no) on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], aliases=["orders"]),
+        Metric(id="retail_product_sales", name="Product gross sales", description="Gross sales by stock code or description.", calculation="SUM(retail_lines.quantity * retail_lines.unit_price) grouped by stock_code or description on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], currency="GBP", aliases=["product sales"]),
+        Metric(id="retail_country_sales", name="Country gross sales", description="Gross sales by invoice country.", calculation="SUM(retail_lines.quantity * retail_lines.unit_price) grouped by country on sale lines only", source_tables=["retail_lines"], date_field="retail_lines.invoice_date", included_statuses=["sale"], excluded_statuses=["cancellation", "non-sale"], currency="GBP", aliases=["country sales"]),
     ]
 }
-
-# Registered customers have no order-status restriction.
-METRICS["customer_count"] = METRICS["customer_count"].model_copy(
-    update={"included_statuses": [], "excluded_statuses": []}
-)

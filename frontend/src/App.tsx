@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "./lib/api";
 import type {
   ClarificationTurn,
@@ -6,10 +6,18 @@ import type {
   Health,
   HistoryItem,
   QueryResponse,
+  RetailOverview,
+  ProductForecast,
 } from "./types/query";
 import { QueryInputCard } from "./components/QueryInputCard";
 import { HistoryCard } from "./components/HistoryCard";
 import { AnalysisResult } from "./components/AnalysisResult";
+
+const RetailDashboard = lazy(() =>
+  import("./components/RetailDashboard").then((module) => ({
+    default: module.RetailDashboard,
+  })),
+);
 
 function App() {
   const [question, setQuestion] = useState("");
@@ -22,6 +30,10 @@ function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [answer, setAnswer] = useState("");
+  const outcomeRef = useRef<HTMLDivElement>(null);
+  const [overview, setOverview] = useState<RetailOverview | null>(null);
+  const [forecasts, setForecasts] = useState<ProductForecast[]>([]);
+  const [dashboardFailed, setDashboardFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -33,11 +45,16 @@ function App() {
         ...config,
         validateStatus: (status) => status === 200 || status === 503,
       }),
-    ]).then(([ex, hist, state]) => {
+      api.get<RetailOverview>("/retail/overview", config),
+      api.get<ProductForecast[]>("/retail/forecasts", config),
+    ]).then(([ex, hist, state, retail, forecast]) => {
       if (controller.signal.aborted) return;
       if (ex.status === "fulfilled") setExamples(ex.value.data);
       if (hist.status === "fulfilled") setHistory(hist.value.data);
       if (state.status === "fulfilled") setHealth(state.value.data);
+      if (retail.status === "fulfilled") setOverview(retail.value.data);
+      else setDashboardFailed(true);
+      if (forecast.status === "fulfilled") setForecasts(forecast.value.data);
       if ([ex, hist, state].some((item) => item.status === "rejected"))
         setNotice(
           "Some workspace data could not load. You can retry history below or reload the page.",
@@ -46,6 +63,15 @@ function App() {
     });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (result || error) {
+      outcomeRef.current?.scrollIntoView?.({
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    }
+  }, [result, error]);
 
   async function refreshHistory() {
     try {
@@ -98,31 +124,23 @@ function App() {
   }
   const clarificationQuestion = result?.plan?.clarification_question;
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-      <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-400">
-            Analytics Query Assistant
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Sales, understood.
-          </h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Explore your data. See the reasoning. Inspect the evidence.
-          </p>
-        </div>
-        <span role="status" className="badge">
-          {initializing
-            ? "Checking services…"
-            : health?.status === "ok"
-              ? "Services available · AI ready"
-              : health?.provider === "unavailable" ||
-                  health?.provider === "model_not_loaded" ||
-                  health?.provider === "not_configured"
-                ? "AI provider unavailable"
-                : "Service attention needed"}
-        </span>
+    <div className="app-shell">
+      <aside className="app-sidebar" aria-label="Workspace navigation">
+        <div className="brand-mark" aria-hidden="true">R<span>•</span></div>
+        <p className="sidebar-label">WORKSPACE</p>
+        <a href="#overview" className="nav-item active"><span>▦</span> Overview</a>
+        <a href="#forecast" className="nav-item"><span>⌁</span> Forecast lab</a>
+        <a href="#ask" className="nav-item"><span>◌</span> Ask the data</a>
+        <div className="sidebar-bottom"><span className="sidebar-dot" /> Analytics workspace<br/><small>Demand forecasting</small></div>
+      </aside>
+      <main className="app-main">
+      <header className="app-topbar"><div><strong>Retail Analytics &amp; Demand Forecasting</strong><span> / Platform</span></div>
+        <span role="status" className="service-status">{initializing ? "Checking services…" : health?.status === "ok" ? "AI ready" : health?.provider === "unavailable" || health?.provider === "model_not_loaded" || health?.provider === "model_not_available" || health?.provider === "not_configured" ? "AI provider unavailable" : "Service attention needed"}</span>
       </header>
+      <Suspense fallback={<div className="dashboard-empty">Loading retail dashboard…</div>}>
+        <RetailDashboard overview={overview} forecasts={forecasts} failed={dashboardFailed} />
+      </Suspense>
+      <div className="analyst-section" id="ask"><div className="analyst-heading"><p className="eyebrow">ANALYST / NATURAL LANGUAGE</p><h2>Ask the data</h2><p>Explore a metric, inspect the SQL, and see evidence from the returned rows.</p></div>
       <div className="space-y-5">
         <QueryInputCard
           question={question}
@@ -136,10 +154,11 @@ function App() {
             setAnswer("");
           }}
         />
+        {(notice || error || result) && <div className="query-outcome" ref={outcomeRef}>
         {notice && (
           <p
             role="status"
-            className="rounded-xl border border-amber-800 bg-amber-950/30 p-4 text-sm text-amber-200"
+            className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
           >
             {notice}
           </p>
@@ -147,7 +166,7 @@ function App() {
         {error && (
           <p
             role="alert"
-            className="rounded-xl border border-red-800 bg-red-950/30 p-4 text-sm text-red-200"
+            className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
           >
             {error}
           </p>
@@ -155,18 +174,18 @@ function App() {
         <div aria-live="polite" aria-busy={busy}>
           {result?.status === "needs_clarification" && (
             <section
-              className="panel border-amber-700"
+              className="panel border-amber-300"
               aria-label="Clarification required"
             >
               <h2 className="text-lg font-semibold">
                 One detail before we query
               </h2>
-              <p className="mt-2 text-slate-300">{clarificationQuestion}</p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-2 text-slate-700">{clarificationQuestion}</p>
+              <p className="mt-1 text-xs text-slate-500">
                 Original question: {result.question} · No SQL has been executed.
               </p>
               {result.clarification.length >= 3 ? (
-                <p className="mt-4 text-amber-200">
+                <p className="mt-4 text-amber-800">
                   Please start a new question with the details gathered so far.
                 </p>
               ) : (
@@ -202,13 +221,13 @@ function App() {
             </section>
           )}
           {(result?.status === "blocked" || result?.status === "failed") && (
-            <section role="alert" className="panel border-amber-700">
+            <section role="alert" className="panel border-amber-300">
               <h2 className="font-semibold">
                 {result.status === "blocked"
                   ? "Request not executed"
                   : "Analysis unavailable"}
               </h2>
-              <p className="mt-2 text-slate-300">
+              <p className="mt-2 text-slate-700">
                 {result.error?.message ?? result.plan?.explanation}
               </p>
             </section>
@@ -222,6 +241,7 @@ function App() {
             />
           )}
         </div>
+        </div>}
         <HistoryCard
           history={history}
           isLoading={busy}
@@ -229,12 +249,10 @@ function App() {
           onSelectHistoryItem={(item) => void restore(item)}
         />
       </div>
-      <footer className="mt-8 text-xs leading-relaxed text-slate-500">
-        Synthetic sales data · EUR · Shared demonstration workspace, no private
-        accounts. Questions go to the AI provider. Do not enter personal or
-        confidential information.
-      </footer>
-    </main>
+      </div>
+      <footer className="app-footer">UCI Online Retail data © Daqing Chen · CC BY 4.0. Historical data ends in 2011. AI questions go to the configured provider; do not enter personal or confidential information.</footer>
+      </main>
+    </div>
   );
 }
 export default App;

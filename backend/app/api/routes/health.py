@@ -22,14 +22,17 @@ class HealthResponse(BaseModel):
 
 
 def provider_status() -> str:
-    if not settings.AI_API_URL:
+    if not settings.AI_API_URL or (settings.AI_PROVIDER == "groq" and not settings.AI_API_KEY):
         return "not_configured"
     models_url = settings.AI_API_URL.removesuffix("/chat/completions").rstrip("/") + "/models"
     try:
-        result = httpx.get(models_url, timeout=2)
+        headers = {"Authorization": f"Bearer {settings.AI_API_KEY}"} if settings.AI_PROVIDER == "groq" else None
+        result = httpx.get(models_url, headers=headers, timeout=2) if headers else httpx.get(models_url, timeout=2)
         if result.status_code >= 400:
             return "unavailable"
         models = result.json().get("data", [])
+        if settings.AI_PROVIDER == "groq":
+            return "ok" if any(model.get("id") == settings.AI_MODEL for model in models) else "model_not_available"
         return "ok" if models else "model_not_loaded"
     except (httpx.HTTPError, ValueError, TypeError, AttributeError):
         return "unavailable"
@@ -45,7 +48,7 @@ def health_check(response: Response):
                     text(
                         "SELECT 1 FROM query_history LIMIT 0"
                         if name == "application_database"
-                        else "SELECT id FROM orders LIMIT 0"
+                        else "SELECT id FROM retail_lines LIMIT 0"
                     )
                 )
                 restricted = name != "analytics_database" or reader_is_restricted(connection)

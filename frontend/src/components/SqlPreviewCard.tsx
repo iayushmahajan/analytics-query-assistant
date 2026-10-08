@@ -17,11 +17,11 @@ export function SqlPreviewCard({ sql }: { sql: string }) {
         <button className="secondary" onClick={() => void copy()}>
           Copy SQL
         </button>
-        <span role="status" className="text-sm text-slate-400">
+        <span role="status" className="text-sm text-slate-500">
           {notice}
         </span>
       </div>
-      <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-sm leading-6 text-teal-200">
+      <pre className="overflow-x-auto rounded-xl bg-slate-50 p-4 text-sm leading-6 text-violet-700">
         <code>{sql}</code>
       </pre>
     </details>

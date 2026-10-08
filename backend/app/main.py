@@ -11,8 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.routes.examples import router as examples_router
 from app.api.routes.health import router as health_router
 from app.api.routes.history import router as history_router
-from app.api.routes.metadata import router as metadata_router
 from app.api.routes.query import router as query_router
+from app.api.routes.retail import router as retail_router
 from app.core.config import settings
 from app.core.logging import setup_logging
 
@@ -75,10 +75,10 @@ async def database_unavailable(request: Request, exc: SQLAlchemyError):
     )
 
 
-for router in (health_router, examples_router, history_router, query_router, metadata_router):
+for router in (health_router, examples_router, history_router, query_router, retail_router):
     app.include_router(router)
 
 
 @app.get("/")
 def root():
-    return {"message": "Analytics Query Assistant API", "docs": "/docs"}
+    return {"message": "Retail Analytics & Demand Forecasting Platform API", "docs": "/docs"}

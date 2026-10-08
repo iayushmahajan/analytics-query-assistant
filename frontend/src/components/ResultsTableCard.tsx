@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import type { Cell } from "../types/query";
 import { downloadCsv, formatCell, label, numeric } from "../lib/results";
 
-type Props = { columns: string[]; rows: Cell[][] };
-export function ResultsTableCard({ columns, rows }: Props) {
+type Props = { columns: string[]; rows: Cell[][]; currency?: string };
+export function ResultsTableCard({ columns, rows, currency = "GBP" }: Props) {
   const [sort, setSort] = useState<{
     index: number;
     ascending: boolean;
@@ -27,7 +27,7 @@ export function ResultsTableCard({ columns, rows }: Props) {
   return (
     <section aria-label="Result table">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-500">
           {rows.length} returned {rows.length === 1 ? "row" : "rows"}
         </p>
         <button
@@ -39,16 +39,16 @@ export function ResultsTableCard({ columns, rows }: Props) {
         </button>
       </div>
       {!rows.length ? (
-        <p className="rounded-xl bg-slate-950 p-6 text-slate-400">
+        <p className="rounded-xl bg-slate-50 p-6 text-slate-500">
           No matching data for these filters. Try a different date range.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-700">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">
               Query results, sortable by column
             </caption>
-            <thead className="bg-slate-950">
+            <thead className="bg-slate-50">
               <tr>
                 {columns.map((column, index) => (
                   <th
@@ -83,15 +83,15 @@ export function ResultsTableCard({ columns, rows }: Props) {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200">
               {sorted.map((row, index) => (
-                <tr key={index} className="hover:bg-slate-800/50">
+                <tr key={index} className="hover:bg-slate-50">
                   {row.map((cell, cellIndex) => (
                     <td
                       key={cellIndex}
-                      className="whitespace-nowrap p-3 tabular-nums text-slate-200"
+                      className="whitespace-nowrap p-3 tabular-nums text-slate-700"
                     >
-                      {formatCell(cell, columns[cellIndex])}
+                      {formatCell(cell, columns[cellIndex], currency)}
                     </td>
                   ))}
                 </tr>

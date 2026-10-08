@@ -10,7 +10,7 @@ def parse_csv_env(value: str) -> list[str]:
 
 
 class Settings:
-    APP_NAME: str = os.getenv("APP_NAME", "Analytics Query Assistant API")
+    APP_NAME: str = os.getenv("APP_NAME", "Retail Analytics & Demand Forecasting Platform API")
     APP_ENV: str = os.getenv("APP_ENV", "development")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "")
@@ -33,6 +33,7 @@ class Settings:
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "foundry_local")
     AI_API_URL: str = os.getenv("AI_API_URL", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "phi-4-mini")
+    AI_API_KEY: str = os.getenv("AI_API_KEY", "")
     AI_REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "120"))
 
     MAX_SQL_ROWS: int = int(os.getenv("MAX_SQL_ROWS", "100"))
@@ -60,7 +61,7 @@ if not (1 <= settings.ANALYSIS_MAX_ROWS <= 100 and 1000 <= settings.ANALYSIS_MAX
 
 if not (1000 <= settings.MAX_RESULT_BYTES <= 1000000 and 1 <= settings.QUERY_HISTORY_LIMIT <= 100):
     raise ValueError("Invalid result snapshot or history limit")
-if settings.AI_PROVIDER != "foundry_local":
-    raise ValueError("AI_PROVIDER must be foundry_local")
+if settings.AI_PROVIDER not in {"foundry_local", "groq"}:
+    raise ValueError("AI_PROVIDER must be foundry_local or groq")
 if not (10 <= settings.AI_REQUEST_TIMEOUT_SECONDS <= 600):
     raise ValueError("AI_REQUEST_TIMEOUT_SECONDS must be between 10 and 600")

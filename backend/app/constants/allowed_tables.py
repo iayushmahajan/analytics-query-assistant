@@ -1,8 +1,1 @@
-ALLOWED_TABLES = {
-    "countries",
-    "customers",
-    "categories",
-    "products",
-    "orders",
-    "order_items",
-}
+ALLOWED_TABLES = {"retail_lines"}

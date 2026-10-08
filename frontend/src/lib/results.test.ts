@@ -4,25 +4,25 @@ describe("result presentation", () => {
   it("chooses charts only for supported shapes", () => {
     expect(
       chartShape(
-        ["month", "revenue"],
+        ["month", "gross_sales"],
         [
-          ["2025-01-01", "100"],
-          ["2025-02-01", "200"],
+          ["2011-01-01", "100"],
+          ["2011-02-01", "200"],
         ],
       )?.kind,
     ).toBe("line");
     expect(
       chartShape(
-        ["category", "revenue"],
+        ["country", "gross_sales"],
         [
-          ["Books", "100"],
-          ["Tools", "200"],
+          ["France", "100"],
+          ["United Kingdom", "200"],
         ],
       )?.kind,
     ).toBe("bar");
     expect(
       chartShape(
-        ["id", "revenue"],
+        ["id", "gross_sales"],
         [
           [1, 100],
           [2, 200],
@@ -40,7 +40,8 @@ describe("result presentation", () => {
     ).toBeNull();
   });
   it("formats exact numeric strings and nulls", () => {
-    expect(formatCell("1234.5", "revenue")).toBe("€1,234.50");
+    expect(formatCell("1234.5", "gross_sales")).toBe("£1,234.50");
+    expect(formatCell("1234.5", "gross_sales", "GBP")).toBe("£1,234.50");
     expect(formatCell(null, "value")).toBe("—");
   });
   it("quotes CSV and neutralizes spreadsheet formulas", () => {

@@ -152,7 +152,7 @@ def validate_sql(sql: str) -> ValidatedSQL:
             raise SQLValidationError("LIMIT must be nonnegative.")
         tree = tree.limit(cap)
         return ValidatedSQL(
-            tree.sql(dialect="postgres", pretty=True, comments=False), sorted(tables), "customers" in tables
+                tree.sql(dialect="postgres", pretty=True, comments=False), sorted(tables), False
         )
     except (SqlglotError, ValueError, RecursionError) as exc:
         raise SQLValidationError("SQL could not be validated.") from exc

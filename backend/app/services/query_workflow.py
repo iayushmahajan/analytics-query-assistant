@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.schemas.query import AppError, QueryRequest, QueryResponse
-from app.constants.metrics import METRICS
+from app.constants.metrics import RETAIL_METRICS
 from app.models import QueryHistory
 from app.services.metric_policy import prepare_query
 from app.services.result_analysis import analyze_result
@@ -45,6 +45,7 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
     response = QueryResponse(
         request_id=request_id,
         question=payload.question,
+        dataset=payload.dataset,
         clarification=payload.clarification,
         status="failed",
         created_at=datetime.now(timezone.utc),
@@ -55,7 +56,7 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
         plan = generate_query_plan(payload)
         response.timings.generation_ms = round((time.perf_counter() - stage) * 1000)
         response.plan = plan
-        response.metric_definition = METRICS.get(plan.metric)
+        response.metric_definition = RETAIL_METRICS.get(plan.metric)
         if plan.status != "ready":
             response.status = plan.status
         else:

@@ -15,21 +15,13 @@ beforeEach(() => {
     data:
       url === "/health"
         ? { status: "ok" }
-        : url === "/metadata"
-          ? {
-              name: "Demo sales",
-              currency: "EUR",
-              order_count: 6,
-              date_start: "2025-01-01",
-              date_end: "2025-12-31",
-            }
-          : url.startsWith("/history/")
+        : url.startsWith("/history/")
             ? result
             : url === "/history"
               ? [
                   {
                     id: 1,
-                    question: "Revenue?",
+                    question: "Gross sales?",
                     status: "success",
                     row_count: 1,
                     created_at: result.created_at,
@@ -42,7 +34,7 @@ beforeEach(() => {
 async function submit() {
   await userEvent.type(
     screen.getByLabelText("What would you like to understand?"),
-    "Revenue?",
+    "Gross sales?",
   );
   await userEvent.click(screen.getByRole("button", { name: "Analyze sales" }));
 }
@@ -53,9 +45,9 @@ it("shows answer and table without the removed metadata strip or raw assumptions
   render(<App />);
   await submit();
   expect(
-    await screen.findByText("Completed revenue is EUR 123.45."),
+    await screen.findByText("Gross sales across all available dates is GBP 123.45."),
   ).toBeInTheDocument();
-  expect(screen.queryByText("Demo sales")).not.toBeInTheDocument();
+  expect(screen.queryByText("Old demo sales")).not.toBeInTheDocument();
   expect(screen.queryByText("Never reveal this internal policy")).not.toBeInTheDocument();
   expect(api.get).not.toHaveBeenCalledWith("/metadata", expect.anything());
   expect(screen.getByRole("table")).toBeInTheDocument();
@@ -66,12 +58,12 @@ it("shows answer and table without the removed metadata strip or raw assumptions
 it("clears stale success when the next request fails", async () => {
   render(<App />);
   await submit();
-  await screen.findByText("Completed revenue is EUR 123.45.");
+  await screen.findByText("Gross sales across all available dates is GBP 123.45.");
   vi.mocked(api.post).mockRejectedValueOnce(new Error("offline"));
   await userEvent.click(screen.getByRole("button", { name: "Analyze sales" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Request failed.");
   expect(
-    screen.queryByText("Completed revenue is EUR 123.45."),
+    screen.queryByText("Gross sales across all available dates is GBP 123.45."),
   ).not.toBeInTheDocument();
 });
 it("continues clarification with original context", async () => {
@@ -80,35 +72,43 @@ it("continues clarification with original context", async () => {
     .mockResolvedValueOnce({ data: result });
   render(<App />);
   await submit();
-  await screen.findByText("Revenue or order count?");
-  await userEvent.type(screen.getByLabelText("Your clarification"), "Revenue");
+  await screen.findByText("Gross sales or invoice count?");
+  await userEvent.type(screen.getByLabelText("Your clarification"), "Gross sales");
   await userEvent.click(
     screen.getByRole("button", { name: "Continue analysis" }),
   );
-  await screen.findByText("Completed revenue is EUR 123.45.");
+  await screen.findByText("Gross sales across all available dates is GBP 123.45.");
   expect(api.post).toHaveBeenLastCalledWith("/query", {
-    question: "Revenue?",
-    clarification: [{ question: "Revenue or order count?", answer: "Revenue" }],
-  });
+    question: "Gross sales?",
+    clarification: [{ question: "Gross sales or invoice count?", answer: "Gross sales" }],
+    });
+});
+it("scrolls to each completed result", async () => {
+  const scroll = vi.fn();
+  Element.prototype.scrollIntoView = scroll;
+  render(<App />);
+  await submit();
+  await screen.findByText("Gross sales across all available dates is GBP 123.45.");
+  expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
 });
 it("restores snapshots without another model call", async () => {
   render(<App />);
   await waitFor(() => expect(screen.getByText(/1 saved/)).toBeInTheDocument());
   fireEvent.click(screen.getByText("Recent analyses"));
-  await userEvent.click(screen.getByRole("button", { name: /Revenue\?/ }));
-  await screen.findByText("Completed revenue is EUR 123.45.");
+  await userEvent.click(screen.getByRole("button", { name: /Gross sales\?/ }));
+  await screen.findByText("Gross sales across all available dates is GBP 123.45.");
   expect(api.post).not.toHaveBeenCalled();
 });
 it("does not discard success when history refresh fails", async () => {
   render(<App />);
-  await screen.findByText(/Services available/);
+  await screen.findByText(/AI ready/);
   vi.mocked(api.get).mockRejectedValue(new Error("history unavailable"));
   await submit();
   expect(
     await screen.findByText(/History could not refresh/),
   ).toBeInTheDocument();
   expect(
-    screen.getByText("Completed revenue is EUR 123.45."),
+    screen.getByText("Gross sales across all available dates is GBP 123.45."),
   ).toBeInTheDocument();
 });
 it("announces initial load errors", async () => {
@@ -125,7 +125,7 @@ it("handles clipboard denial without losing SQL", async () => {
   });
   render(<App />);
   await submit();
-  await screen.findByText("Completed revenue is EUR 123.45.");
+  await screen.findByText("Gross sales across all available dates is GBP 123.45.");
   fireEvent.click(screen.getByText("Inspect SQL"));
   await userEvent.click(screen.getByRole("button", { name: "Copy SQL" }));
   expect(await screen.findByText(/Clipboard unavailable/)).toBeInTheDocument();
