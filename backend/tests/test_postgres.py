@@ -31,13 +31,20 @@ def postgres():
     owner = create_engine(url)
     reader = create_engine(reader_url)
     with owner.begin() as connection:
-        connection.execute(text("TRUNCATE retail_lines, retail_forecasts, query_history RESTART IDENTITY"))
+        connection.execute(text(
+            "TRUNCATE retail_lines, retail_imports, market_observations, market_forecasts, "
+            "market_imports, query_history RESTART IDENTITY"
+        ))
         connection.execute(text("""
             INSERT INTO retail_lines(invoice_no, stock_code, description, quantity,
                 unit_price, invoice_date, country, is_sale) VALUES
             ('1001','A1','Paper',2,10,'2011-01-01','United Kingdom',true),
             ('1002','A1','Paper',3,20,'2011-01-02','France',true),
             ('C1003','A1','Paper',-1,10,'2011-01-03','France',false)
+        """))
+        connection.execute(text("""
+            INSERT INTO market_observations(period, value, status)
+            VALUES ('2026-08-01', 99.9, 'p')
         """))
     yield owner, reader
     owner.dispose()
@@ -57,11 +64,18 @@ def test_schema_is_retail_only(postgres):
 def test_reader_boundary_and_sale_population(postgres, monkeypatch):
     _, reader = postgres
     monkeypatch.setattr(sql_executor, "analytics_engine", reader)
-    for sql in ["SELECT * FROM query_history", "UPDATE retail_lines SET quantity=0", "CREATE TEMP TABLE stolen(id int)"]:
+    for sql in [
+        "SELECT * FROM query_history",
+        "UPDATE retail_lines SET quantity=0",
+        "UPDATE market_observations SET value=0",
+        "CREATE TEMP TABLE stolen(id int)",
+    ]:
         with reader.connect() as connection:
             with pytest.raises(DBAPIError):
                 connection.execute(text(sql))
             connection.rollback()
+    with reader.connect() as connection:
+        assert float(connection.execute(text("SELECT value FROM market_observations")).scalar()) == 99.9
     plan = QueryPlan(status="ready", sql="SELECT SUM(quantity * unit_price) AS gross_sales FROM retail_lines",
                      metric="retail_gross_sales", interpretation="Gross sales", explanation="Sale value")
     assert execute_select_sql(prepare_query(plan))["rows"] == [["80.00"]]

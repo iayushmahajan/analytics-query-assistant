@@ -89,7 +89,7 @@ def import_csv(
     connection = engine.raw_connection()
     try:
         with connection.cursor() as cursor, path.open("r", encoding="utf-8") as source:
-            cursor.execute("TRUNCATE retail_forecasts, retail_lines RESTART IDENTITY")
+            cursor.execute("TRUNCATE retail_lines RESTART IDENTITY")
             cursor.copy_expert("COPY retail_lines (invoice_no, stock_code, description, quantity, unit_price, invoice_date, country, is_sale) FROM STDIN WITH (FORMAT csv)", source)
             cursor.execute(
                 """

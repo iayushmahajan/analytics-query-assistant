@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api } from "./lib/api";
-import { result, clarification } from "./test/fixtures";
+import { result, clarification, marketForecast } from "./test/fixtures";
 vi.mock("./lib/api", () => ({
   api: { get: vi.fn(), post: vi.fn() },
   errorMessage: () => "Request failed.",
@@ -15,6 +15,10 @@ beforeEach(() => {
     data:
       url === "/health"
         ? { status: "ok" }
+        : url === "/retail/overview"
+          ? { available: false }
+          : url === "/retail/market-forecast"
+            ? marketForecast
         : url.startsWith("/history/")
             ? result
             : url === "/history"
@@ -50,6 +54,7 @@ it("shows answer and table without the removed metadata strip or raw assumptions
   expect(screen.queryByText("Old demo sales")).not.toBeInTheDocument();
   expect(screen.queryByText("Never reveal this internal policy")).not.toBeInTheDocument();
   expect(api.get).not.toHaveBeenCalledWith("/metadata", expect.anything());
+  expect(api.get).toHaveBeenCalledWith("/retail/market-forecast", expect.anything());
   expect(screen.getByRole("table")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
   expect(URL.createObjectURL).toHaveBeenCalled();

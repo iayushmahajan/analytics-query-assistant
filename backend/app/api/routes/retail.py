@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.core.db import analytics_engine
@@ -36,9 +36,9 @@ class RetailOverview(BaseModel):
     sales_invoices: int = 0
     gross_sales: float = 0
     units: int = 0
-    months: list[MonthlyPoint] = []
-    products: list[RankedPoint] = []
-    countries: list[RankedPoint] = []
+    months: list[MonthlyPoint] = Field(default_factory=list)
+    products: list[RankedPoint] = Field(default_factory=list)
+    countries: list[RankedPoint] = Field(default_factory=list)
     imported_at: datetime | None = None
     source_sha256: str | None = None
     dropped_lines: int = 0
@@ -95,47 +95,66 @@ def overview():
 
 
 class ForecastPoint(BaseModel):
-    week: date
+    period: date
     actual: float | None = None
     predicted: float | None = None
 
 
-class ProductForecast(BaseModel):
-    stock_code: str
-    description: str
-    forecast_week: date
+class MarketForecast(BaseModel):
+    available: bool
+    geo_code: str = "DE"
+    geography: str = "Germany"
+    indicator: str = "Seasonally and calendar adjusted retail trade volume index"
+    unit: str = "Index, 2021=100"
+    source: str = "Eurostat · sts_trtu_m"
+    source_updated_at: datetime | None = None
+    source_sha256: str | None = None
+    missing_periods: int = 0
+    target_period: date | None = None
     training_cutoff: date | None = None
-    predicted_units: float
+    predicted_index: float | None = None
     prediction_lower: float | None = None
     prediction_upper: float | None = None
-    baseline_units: float
-    model_mae: float
-    baseline_mae: float
+    baseline_index: float | None = None
+    method: str | None = None
+    baseline_method: str | None = None
+    ml_validation_mae: float | None = None
+    baseline_validation_mae: float | None = None
     test_mae: float | None = None
     baseline_test_mae: float | None = None
     test_wape: float | None = None
     test_bias: float | None = None
     interval_coverage: float | None = None
-    validation_weeks: int | None = None
-    test_weeks: int | None = None
     confidence: str | None = None
-    method: str
-    history: list[ForecastPoint]
-    backtest: list[ForecastPoint]
+    validation_months: int | None = None
+    test_months: int | None = None
+    latest_observation_status: str | None = None
+    history: list[ForecastPoint] = Field(default_factory=list)
+    backtest: list[ForecastPoint] = Field(default_factory=list)
+    trained_at: datetime | None = None
 
 
-@router.get("/forecasts", response_model=list[ProductForecast])
-def forecasts():
+@router.get("/market-forecast", response_model=MarketForecast)
+def market_forecast():
     with analytics_engine.connect() as connection:
-        rows = connection.execute(text("""
-            SELECT stock_code, description, forecast_week, training_cutoff, predicted_units,
-                   prediction_lower, prediction_upper, baseline_units, model_mae, baseline_mae,
-                   test_mae, baseline_test_mae, test_wape, test_bias, interval_coverage,
-                   validation_weeks, test_weeks, confidence, method, history, backtest
-            FROM retail_forecasts
-            ORDER BY CASE confidence
-                WHEN 'supported' THEN 0 WHEN 'limited' THEN 1 ELSE 2 END,
-                predicted_units DESC
-            LIMIT 20
-        """)).mappings().all()
-    return [ProductForecast.model_validate(dict(row)) for row in rows]
+        imported = connection.execute(text("""
+            SELECT source_updated_at, source_sha256, missing_periods
+            FROM market_imports ORDER BY imported_at DESC LIMIT 1
+        """)).one_or_none()
+        row = connection.execute(text("""
+            SELECT geo_code, target_period, training_cutoff, predicted_index,
+                   prediction_lower, prediction_upper, baseline_index, method,
+                   baseline_method, validation_mae AS ml_validation_mae, baseline_validation_mae,
+                   test_mae, baseline_test_mae, test_wape, test_bias,
+                   interval_coverage, confidence, validation_months, test_months,
+                   latest_observation_status, history, backtest, trained_at
+            FROM market_forecasts WHERE geo_code = 'DE'
+        """)).mappings().one_or_none()
+    provenance = {
+        "source_updated_at": imported[0] if imported else None,
+        "source_sha256": imported[1] if imported else None,
+        "missing_periods": imported[2] if imported else 0,
+    }
+    if not row:
+        return MarketForecast(available=False, **provenance)
+    return MarketForecast.model_validate({"available": True, **provenance, **dict(row)})

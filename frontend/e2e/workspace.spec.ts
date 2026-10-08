@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { clarification, result } from "../src/test/fixtures";
+import { clarification, marketForecast, result } from "../src/test/fixtures";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/**", async (route) => {
@@ -13,6 +13,8 @@ test.beforeEach(async ({ page }) => {
               row_count: 1, created_at: result.created_at }]
           : path.endsWith("/retail/overview")
             ? { available: false }
+            : path.endsWith("/retail/market-forecast")
+              ? marketForecast
             : [];
     await route.fulfill({ json: data });
   });

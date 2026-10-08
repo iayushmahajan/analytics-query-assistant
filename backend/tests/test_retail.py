@@ -1,6 +1,7 @@
 import csv
+import json
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from unittest.mock import Mock
 
 import httpx
@@ -10,8 +11,9 @@ from pydantic import ValidationError
 
 from app.api.schemas.query import QueryPlan, QueryRequest
 from app.core.config import settings
+from app.scripts.import_market import parse_payload, payload_sha256
 from app.scripts.import_retail import archive_sha256, convert_archive
-from app.scripts.train_retail import build_forecasts
+from app.scripts.train_market import build_forecast, month_after
 from app.services.metric_policy import prepare_query
 from app.services.sql_generator import generate_query_plan
 from app.services.sql_validator import SQLValidationError, validate_sql
@@ -69,18 +71,96 @@ def test_import_tracks_cancellations_without_customer_identifiers(tmp_path):
     assert len(archive_sha256(archive)) == 64
 
 
-def test_forecast_uses_separate_chronological_validation_and_test_windows():
-    start = date(2010, 12, 6)
-    rows = [("A1", start + timedelta(weeks=i), 10 + i % 4) for i in range(40)]
-    output = build_forecasts(rows, [("A1", "Product")], start + timedelta(weeks=39))
-    forecast = output[0]
-    assert forecast["forecast_week"] == start + timedelta(weeks=40)
-    assert len(forecast["backtest"]) == 8
-    assert forecast["model_mae"] >= 0 and forecast["baseline_mae"] >= 0
+def _months(count: int, start: date = date(2010, 1, 1)) -> list[date]:
+    output = []
+    current = start
+    for _ in range(count):
+        output.append(current)
+        current = month_after(current)
+    return output
+
+
+def _eurostat_payload(count: int = 132, missing: set[int] | None = None) -> bytes:
+    missing = missing or set()
+    periods = _months(count)
+    dimensions = {
+        name: {"category": {"index": {code: 0}}}
+        for name, code in {
+            "freq": "M", "indic_bt": "VOL_SLS", "nace_r2": "G47",
+            "s_adj": "SCA", "unit": "I21", "geo": "DE",
+        }.items()
+    }
+    dimensions["time"] = {
+        "category": {"index": {period.strftime("%Y-%m"): i for i, period in enumerate(periods)}}
+    }
+    document = {
+        "version": "2.0", "class": "dataset",
+        "id": ["freq", "indic_bt", "nace_r2", "s_adj", "unit", "geo", "time"],
+        "size": [1, 1, 1, 1, 1, 1, count], "dimension": dimensions,
+        "value": {str(i): 90 + i / 10 for i in range(count) if i not in missing},
+        "status": {str(count - 1): "p"}, "updated": "2026-10-06T11:00:00+0200",
+    }
+    return json.dumps(document).encode()
+
+
+def test_market_import_validates_dimensions_missing_values_and_provisional_status():
+    payload = _eurostat_payload(missing={0, 1})
+    snapshot = parse_payload(payload)
+    assert len(snapshot.observations) == 130
+    assert snapshot.missing_periods == 2
+    assert snapshot.observations[-1]["status"] == "p"
+    assert snapshot.source_updated_at.utcoffset() is not None
+    assert len(payload_sha256(payload)) == 64
+
+
+@pytest.mark.parametrize("mutation", ["bad_json", "wrong_geo", "too_short", "non_positive"])
+def test_market_import_fails_closed_on_unexpected_payloads(mutation):
+    if mutation == "bad_json":
+        payload = b"not-json"
+    else:
+        document = json.loads(_eurostat_payload(132))
+        if mutation == "wrong_geo":
+            document["dimension"]["geo"]["category"]["index"] = {"FR": 0}
+        elif mutation == "too_short":
+            document = json.loads(_eurostat_payload(119))
+        else:
+            document["value"]["131"] = -1
+        payload = json.dumps(document).encode()
+    with pytest.raises(ValueError):
+        parse_payload(payload)
+
+
+def test_market_forecast_uses_separate_validation_and_test_windows():
+    periods = _months(180)
+    observations = [
+        (period, 100 + i * 0.03 + 2 * (i % 12 == 11), "p" if i == 179 else None)
+        for i, period in enumerate(periods)
+    ]
+    forecast = build_forecast(observations)
+    assert forecast["target_period"] == month_after(periods[-1])
+    assert len(forecast["backtest"]) == 24
+    assert forecast["validation_months"] == 24 and forecast["test_months"] == 24
     assert forecast["test_mae"] >= 0 and forecast["baseline_test_mae"] >= 0
     assert 0 <= forecast["interval_coverage"] <= 1
-    assert forecast["prediction_lower"] <= forecast["predicted_units"] <= forecast["prediction_upper"]
-    assert forecast["validation_weeks"] == 8 and forecast["test_weeks"] == 8
+    assert forecast["prediction_lower"] <= forecast["predicted_index"] <= forecast["prediction_upper"]
     assert forecast["confidence"] in {"supported", "limited", "insufficient"}
-    assert forecast["method"] in {"gradient_boosting", "four_week_average"}
-    assert forecast["predicted_units"] >= 0
+    assert forecast["latest_observation_status"] == "p"
+
+
+def test_market_forecast_prefers_a_simple_baseline_when_ml_has_no_material_gain():
+    observations = [(period, 100.0, None) for period in _months(150)]
+    forecast = build_forecast(observations)
+    assert forecast["method"] == "last_value"
+    assert forecast["test_mae"] == 0
+    assert forecast["test_wape"] == 0
+
+
+def test_market_forecast_rejects_short_contiguous_suffix_and_invalid_values():
+    old = [(period, 100.0, None) for period in _months(130, date(2000, 1, 1))]
+    recent = [(period, 101.0, None) for period in _months(119, date(2020, 1, 1))]
+    with pytest.raises(ValueError, match="contiguous"):
+        build_forecast(old + recent)
+    invalid = [(period, 100.0, None) for period in _months(130)]
+    invalid[-1] = (invalid[-1][0], float("nan"), None)
+    with pytest.raises(ValueError, match="finite"):
+        build_forecast(invalid)

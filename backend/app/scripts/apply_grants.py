@@ -6,7 +6,8 @@ from app.core.db import engine
 
 STATEMENTS = [
     "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM analytics_reader",
-    "GRANT SELECT ON retail_lines, retail_forecasts, retail_imports TO analytics_reader",
+    "GRANT SELECT ON retail_lines, retail_imports, market_observations, "
+    "market_forecasts, market_imports TO analytics_reader",
     "REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM analytics_reader",
 ]
 

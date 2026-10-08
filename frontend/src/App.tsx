@@ -7,7 +7,7 @@ import type {
   HistoryItem,
   QueryResponse,
   RetailOverview,
-  ProductForecast,
+  MarketForecast,
 } from "./types/query";
 import { QueryInputCard } from "./components/QueryInputCard";
 import { HistoryCard } from "./components/HistoryCard";
@@ -32,7 +32,7 @@ function App() {
   const [answer, setAnswer] = useState("");
   const outcomeRef = useRef<HTMLDivElement>(null);
   const [overview, setOverview] = useState<RetailOverview | null>(null);
-  const [forecasts, setForecasts] = useState<ProductForecast[]>([]);
+  const [forecast, setForecast] = useState<MarketForecast | null>(null);
   const [dashboardFailed, setDashboardFailed] = useState(false);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ function App() {
         validateStatus: (status) => status === 200 || status === 503,
       }),
       api.get<RetailOverview>("/retail/overview", config),
-      api.get<ProductForecast[]>("/retail/forecasts", config),
+      api.get<MarketForecast>("/retail/market-forecast", config),
     ]).then(([ex, hist, state, retail, forecast]) => {
       if (controller.signal.aborted) return;
       if (ex.status === "fulfilled") setExamples(ex.value.data);
@@ -54,7 +54,7 @@ function App() {
       if (state.status === "fulfilled") setHealth(state.value.data);
       if (retail.status === "fulfilled") setOverview(retail.value.data);
       else setDashboardFailed(true);
-      if (forecast.status === "fulfilled") setForecasts(forecast.value.data);
+      if (forecast.status === "fulfilled") setForecast(forecast.value.data);
       if ([ex, hist, state].some((item) => item.status === "rejected"))
         setNotice(
           "Some workspace data could not load. You can retry history below or reload the page.",
@@ -138,7 +138,7 @@ function App() {
         <span role="status" className="service-status">{initializing ? "Checking services…" : health?.status === "ok" ? "AI ready" : health?.provider === "unavailable" || health?.provider === "model_not_loaded" || health?.provider === "model_not_available" || health?.provider === "not_configured" ? "AI provider unavailable" : "Service attention needed"}</span>
       </header>
       <Suspense fallback={<div className="dashboard-empty">Loading retail dashboard…</div>}>
-        <RetailDashboard overview={overview} forecasts={forecasts} failed={dashboardFailed} />
+        <RetailDashboard overview={overview} forecast={forecast} failed={dashboardFailed} />
       </Suspense>
       <div className="analyst-section" id="ask"><div className="analyst-heading"><p className="eyebrow">ANALYST / NATURAL LANGUAGE</p><h2>Ask the data</h2><p>Explore a metric, inspect the SQL, and see evidence from the returned rows.</p></div>
       <div className="space-y-5">
@@ -250,7 +250,7 @@ function App() {
         />
       </div>
       </div>
-      <footer className="app-footer">UCI Online Retail data © Daqing Chen · CC BY 4.0. Historical data ends in 2011. AI questions go to the configured provider; do not enter personal or confidential information.</footer>
+      <footer className="app-footer">UCI Online Retail (CC BY 4.0) powers historical transaction analysis; Eurostat powers the current Germany retail-volume outlook. AI questions go to the configured provider; do not enter personal or confidential information.</footer>
       </main>
     </div>
   );
