@@ -20,8 +20,8 @@ test.beforeEach(async ({ page }) => {
 test("market comparison chart, table, CSV and restored history", async ({ page }) => {
   await page.route("**/api/query", (route) => route.fulfill({ json: {
     ...result,
-    columns: ["geography", "yearly_change"],
-    rows: [["Germany", "1.8"], ["Spain", "5.1"]],
+    columns: ["period", "germany_index", "eu_27_index", "germany_minus_eu_27_gap"],
+    rows: [["2026-07-01", "98.6", "104.9", "-6.3"], ["2026-08-01", "99.9", "105", "-5.1"]],
     row_count: 2,
   } }));
   await page.goto("/");
@@ -29,9 +29,9 @@ test("market comparison chart, table, CSV and restored history", async ({ page }
   await page.getByLabel("What would you like to understand?").fill("Compare latest annual change by country");
   await page.getByRole("button", { name: "Analyze market" }).click();
   await expect(page.getByRole("figure")).toBeVisible();
-  await expect(page.getByRole("figure").locator(".recharts-bar")).toBeVisible();
+  await expect(page.getByRole("figure").locator(".recharts-line")).toHaveCount(3);
   await page.getByRole("button", { name: "Table", exact: true }).click();
-  await expect(page.getByRole("table")).toContainText("5.1 pts");
+  await expect(page.getByRole("table")).toContainText("-5.1 pts");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   expect((await download).suggestedFilename()).toBe("eurostat-analysis.csv");

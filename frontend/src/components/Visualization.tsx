@@ -21,6 +21,7 @@ export function Visualization({
 }) {
   const shape = chartShape(columns, rows);
   if (!shape) return null;
+  const colors = ["#5b3df5", "#35aaa2", "#e09a42", "#b64c78"];
   const common = (
     <>
       <CartesianGrid stroke="#e2e8f0" vertical={false} />
@@ -42,10 +43,10 @@ export function Visualization({
   );
   return (
     <figure
-      aria-label={`${shape.kind === "line" ? "Line" : "Bar"} chart of ${label(shape.measure)} by ${label(shape.dimension)}`}
+      aria-label={`${shape.kind === "line" ? "Line" : "Bar"} chart of ${shape.measures.map(label).join(" and ")} by ${label(shape.dimension)}`}
     >
       <figcaption className="mb-4 text-sm capitalize text-slate-600">
-        {label(shape.measure)} by {label(shape.dimension)} · values from
+        {shape.measures.map(label).join(" and ")} by {label(shape.dimension)} · values from
         returned rows
       </figcaption>
       <div className="h-80 min-w-0">
@@ -53,25 +54,33 @@ export function Visualization({
           {shape.kind === "line" ? (
             <LineChart data={shape.data}>
               {common}
-              <Line
-                type="monotone"
-                dataKey="value"
-                name={label(shape.measure)}
-                stroke="#5b3df5"
-                strokeWidth={2}
-                isAnimationActive={false}
-              />
+              {shape.measures.map((measure, index) => (
+                <Line
+                  key={measure}
+                  type="monotone"
+                  dataKey={measure}
+                  name={label(measure)}
+                  stroke={colors[index % colors.length]}
+                  strokeWidth={measure.includes("gap") ? 1.5 : 2.4}
+                  strokeDasharray={measure.includes("gap") ? "5 4" : undefined}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              ))}
             </LineChart>
           ) : (
             <BarChart data={shape.data}>
               {common}
-              <Bar
-                dataKey="value"
-                name={label(shape.measure)}
-                fill="#5b3df5"
-                radius={[4, 4, 0, 0]}
-                isAnimationActive={false}
-              />
+              {shape.measures.map((measure, index) => (
+                <Bar
+                  key={measure}
+                  dataKey={measure}
+                  name={label(measure)}
+                  fill={colors[index % colors.length]}
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
+                />
+              ))}
             </BarChart>
           )}
         </ResponsiveContainer>

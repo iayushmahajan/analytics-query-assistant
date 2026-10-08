@@ -10,7 +10,7 @@ from app.constants.metrics import RETAIL_METRICS
 from app.core.config import settings
 from app.services import sql_generator
 from app.services.prompt_builder import build_sql_generation_messages
-from app.services.result_analysis import analyze_result, build_result_context
+from app.services.result_analysis import analyze_result, build_result_context, shape_comparison_result
 from app.services.sql_validator import validate_sql
 
 
@@ -93,6 +93,7 @@ def test_semantic_contract_used_in_prompt():
     assert "retail_observations" in prompt
     assert "G47_NFOOD_X_G473" in prompt
     assert "INDEX POINTS" in prompt
+    assert "conditional\naggregation" in prompt
     assert "future predictions" in prompt
 
 
@@ -160,3 +161,55 @@ def test_anomaly_observations_use_declared_robust_threshold():
     assert analysis.anomalies == [
         "2026-01 exceeds the declared anomaly threshold with a robust score of 4.20."
     ]
+
+
+def test_long_form_time_comparison_is_pivoted_and_analyzed_as_two_series():
+    plan = QueryPlan(
+        status="ready",
+        sql="SELECT period, geography, value FROM retail_observations",
+        metric="retail_index",
+        interpretation="Compare Germany and EU-27",
+        explanation="Aligned comparison",
+        date_range="latest 3 months",
+        dimensions=["period", "geography"],
+    )
+    raw = {
+        "columns": ["period", "geography", "value"],
+        "rows": [
+            ["2026-06-01", "Germany", "101.9"], ["2026-06-01", "EU-27", "105.4"],
+            ["2026-07-01", "Germany", "98.6"], ["2026-07-01", "EU-27", "104.9"],
+            ["2026-08-01", "Germany", "99.9"], ["2026-08-01", "EU-27", "105.0"],
+        ],
+        "row_count": 6,
+        "possibly_truncated": False,
+    }
+    shaped = shape_comparison_result(plan, raw)
+    assert shaped["columns"] == [
+        "period", "germany_index", "eu_27_index", "germany_minus_eu_27_gap"
+    ]
+    assert shaped["row_count"] == 3
+    assert shaped["rows"][-1] == ["2026-08-01", "99.9", "105.0", "-5.1"]
+    analysis = analyze_result(plan, shaped, validate_sql(plan.sql))
+    assert analysis.answer == (
+        "From 2026-06-01 to 2026-08-01, Germany decreased by 2 index points, while "
+        "EU-27 decreased by 0.40 index points."
+    )
+    assert "5.10 index points below EU-27" in analysis.findings[0]
+    assert analysis.findings[1] == "Germany was above EU-27 in 0 of 3 comparable months."
+    assert analysis.trends[0] == "Over the window, Germany underperformed EU-27 by 1.60 index points."
+    assert analysis.follow_up_questions[0] == (
+        "In which month was the gap between Germany and EU-27 widest?"
+    )
+
+
+def test_comparison_pivot_fails_closed_for_missing_or_truncated_pairs():
+    plan = QueryPlan(status="ready", sql="SELECT period, geography, value FROM retail_observations",
+                     metric="retail_index", interpretation="Compare", explanation="Compare")
+    incomplete = {"columns": ["period", "geography", "value"],
+                  "rows": [["2026-08-01", "Germany", "99.9"]],
+                  "row_count": 1, "possibly_truncated": False}
+    assert shape_comparison_result(plan, incomplete) is incomplete
+    truncated = {**incomplete, "rows": [
+        ["2026-08-01", "Germany", "99.9"], ["2026-08-01", "EU-27", "105.0"]],
+        "row_count": 2, "possibly_truncated": True}
+    assert shape_comparison_result(plan, truncated) is truncated

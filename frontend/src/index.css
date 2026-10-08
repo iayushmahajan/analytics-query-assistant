@@ -91,7 +91,7 @@ html { scroll-behavior: smooth; }
 .anomaly-direction { width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; flex: 0 0 auto; }.anomaly-direction.increase { color: #237c60; background: #e6f6ef; }.anomaly-direction.decrease { color: #b04856; background: #fdecef; }
 .anomaly-row div { min-width: 0; display: grid; gap: 4px; }.anomaly-row strong { color: #485365; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.anomaly-row small { color: #8b96a5; font-size: 10px; }
 .data-scope-card { scroll-margin-top: 22px; }
-.scope-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.scope-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .scope-stats > div { display: grid; gap: 4px; border: 1px solid #edf0f4; background: #fafbfe; padding: 15px; border-radius: 12px; }.scope-stats strong { font-size: 22px; letter-spacing: -.03em; }.scope-stats span { color: #8994a2; font-size: 11px; }
 .quality-copy { color: #687586; font-size: 12px; line-height: 1.65; margin: 17px 0; }.source-link { color: #5b49db; font-size: 12px; font-weight: 700; text-decoration: none; }.source-link:hover { text-decoration: underline; }
 .dashboard-empty { background: #fff; border: 1px dashed #cfd5e1; border-radius: 18px; padding: 46px 24px; text-align: center; color: #536071; }.dashboard-empty strong { color: #253043; font-size: 18px; }.dashboard-empty p { max-width: 520px; margin: 9px auto 0; font-size: 13px; line-height: 1.6; }

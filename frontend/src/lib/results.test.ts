@@ -6,12 +6,23 @@ describe("result presentation", () => {
     expect(chartShape(["period", "retail_index"], [["2026-01-01", "100"], ["2026-02-01", "101"]])?.kind).toBe("line");
     expect(chartShape(["geography", "yearly_change"], [["France", "1"], ["Germany", "2"]])?.kind).toBe("bar");
     expect(chartShape(["id", "value"], [[1, 100], [2, 200]])).toBeNull();
-    expect(chartShape(["a", "b", "c"], [["x", 1, 2], ["y", 3, 4]])).toBeNull();
+    expect(chartShape(["a", "b", "c"], [["x", 1, "unknown"], ["y", 3, 4]])).toBeNull();
+  });
+
+  it("builds aligned multi-series comparison charts", () => {
+    const shape = chartShape(
+      ["period", "germany_index", "eu_27_index", "germany_minus_eu_27_gap"],
+      [["2026-07-01", "98.6", "104.9", "-6.3"], ["2026-08-01", "99.9", "105", "-5.1"]],
+    );
+    expect(shape?.kind).toBe("line");
+    expect(shape?.measures).toEqual(["germany_index", "eu_27_index", "germany_minus_eu_27_gap"]);
+    expect(shape?.data[1]).toMatchObject({ germany_index: 99.9, eu_27_index: 105 });
   });
 
   it("formats indices, index-point changes, percentages, currencies and nulls", () => {
     expect(formatCell("104.2", "retail_index")).toBe("104.2");
     expect(formatCell("-1.25", "yearly_change")).toBe("-1.25 pts");
+    expect(formatCell("-5.1", "germany_minus_eu_27_gap")).toBe("-5.1 pts");
     expect(formatCell("79.4", "coverage")).toBe("79.4%");
     expect(formatCell("1234.5", "sales", "EUR")).toBe("€1,234.50");
     expect(formatCell("1234.5", "sales")).toBe("1,234.5");

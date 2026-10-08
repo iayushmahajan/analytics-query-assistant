@@ -15,7 +15,7 @@ The curated dataset covers the EU-27 aggregate and all 27 member states from 201
 
 All observations use Eurostat's seasonally and calendar-adjusted volume index with 2021=100. Values measure sales volume, not money. Monthly and annual movements are differences in index points.
 
-The dashboard provides Germany and EU-27 history, Germany's category mix, a same-period country ranking, data coverage and provisional-value counts. It also flags unusual monthly movements with a robust score calculated against up to 36 preceding monthly changes. A flag means a movement is statistically unusual in that series; it does not identify a cause.
+The dashboard provides Germany and EU-27 history, Germany's category mix, a same-period country ranking, requested-cell completeness, latest-period country coverage and provisional-value counts. It also flags unusual monthly movements with a robust score calculated against up to 36 preceding monthly changes. A flag means a movement is statistically unusual in that series; it does not identify a cause.
 
 The natural-language analyst supports the same countries, categories, periods, index values, monthly and annual changes, rolling volatility and anomaly fields shown on the dashboard. It cannot answer questions about revenue, customers, products, profit, prices or individual companies because those fields do not exist in this dataset.
 

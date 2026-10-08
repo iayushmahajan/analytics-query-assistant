@@ -26,6 +26,9 @@ G47_NFOOD_X_G473 Non-food excluding fuel; G473 Automotive fuel.
 Data starts in 2015 and is refreshed from Eurostat. Query MAX(period) when the user asks for the latest data.
 Use one declared metric ID. For comparison metrics, choose value, monthly_change, yearly_change,
 rolling_volatility or anomaly_score according to the question and use the same category and period.
+For a time comparison between two geographies or categories, return one row per period with conditional
+aggregation: period, one descriptively aliased numeric column per series, and their signed difference.
+Do not return interleaved long-form comparison rows when a side-by-side result is possible.
 Treat provisional status containing 'p' as a disclosure, not a reason to exclude a row.
 If asked for company revenue, products, customers, profit, inventory, transactions, or future predictions,
 return blocked and explain that those attributes are absent. Never fabricate missing fields.

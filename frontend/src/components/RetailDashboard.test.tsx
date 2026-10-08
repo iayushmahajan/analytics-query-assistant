@@ -15,6 +15,8 @@ it("presents one Eurostat market workspace with comparable evidence", () => {
   expect(screen.getByText("Spain")).toBeInTheDocument();
   expect(screen.getByText(/score 4.6/)).toBeInTheDocument();
   expect(screen.getByText("15,320")).toBeInTheDocument();
+  expect(screen.getByText("99.9%")).toBeInTheDocument();
+  expect(screen.getByText("27 / 27")).toBeInTheDocument();
   expect(screen.getByText(/does not represent revenue in euros/)).toBeInTheDocument();
 });
 

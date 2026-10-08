@@ -28,6 +28,9 @@ export function RetailDashboard({ overview, failed }: {
   if (!overview.available) return <Empty title="Eurostat data is ready to import" detail="Run the eurostat-data command to populate the market intelligence workspace." />;
 
   const visibleCountries = overview.countries.slice(0, 7);
+  const completeness = overview.observation_count + overview.missing_cells
+    ? overview.observation_count / (overview.observation_count + overview.missing_cells) * 100
+    : null;
   const germany = overview.countries.find((country) => country.code === "DE");
   if (germany && !visibleCountries.some((country) => country.code === "DE")) visibleCountries.push(germany);
 
@@ -68,7 +71,7 @@ export function RetailDashboard({ overview, failed }: {
     </div>
 
     <section className="dashboard-card data-scope-card" id="quality"><div className="card-head"><div><p className="eyebrow">DATA QUALITY</p><h2>Coverage and provenance</h2></div><span>Updated {fullDate(overview.source_updated_at)}</span></div>
-      <div className="scope-stats"><div><strong>{overview.observation_count.toLocaleString()}</strong><span>observations</span></div><div><strong>{overview.geography_count}</strong><span>geographies</span></div><div><strong>{overview.category_count}</strong><span>retail categories</span></div><div><strong>{overview.provisional_count.toLocaleString()}</strong><span>provisional observations</span></div></div>
+      <div className="scope-stats"><div><strong>{overview.observation_count.toLocaleString()}</strong><span>observations</span></div><div><strong>{overview.geography_count}</strong><span>geographies</span></div><div><strong>{overview.category_count}</strong><span>retail categories</span></div><div><strong>{overview.provisional_count.toLocaleString()}</strong><span>provisional observations</span></div><div><strong>{completeness == null ? "—" : `${number(completeness)}%`}</strong><span>requested-cell completeness</span></div><div><strong>{overview.ranked_country_count} / 27</strong><span>countries in latest ranking</span></div></div>
       <p className="quality-copy">Coverage runs from {fullDate(overview.earliest_period)} to {fullDate(overview.latest_period)}. Monthly and annual changes are index-point differences. Volatility and anomaly scores are derived locally from the imported observations.</p>
       {overview.source_sha256 && <p className="card-note">Source snapshot SHA-256 {overview.source_sha256.slice(0, 16)}… · {overview.missing_cells.toLocaleString()} unavailable source cells retained as missing</p>}
       <a className="source-link" href="https://ec.europa.eu/eurostat/databrowser/view/sts_trtu_m/default/table" target="_blank" rel="noreferrer">Open the Eurostat dataset and methodology ↗</a>

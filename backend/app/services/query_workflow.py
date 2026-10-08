@@ -9,7 +9,7 @@ from app.api.schemas.query import AppError, QueryRequest, QueryResponse
 from app.constants.metrics import RETAIL_METRICS
 from app.models import QueryHistory
 from app.services.metric_policy import prepare_query
-from app.services.result_analysis import analyze_result
+from app.services.result_analysis import analyze_result, shape_comparison_result
 from app.services.sql_executor import SQLExecutionError, execute_select_sql
 from app.services.sql_generator import ProviderError, generate_query_plan
 from app.services.sql_validator import SQLValidationError
@@ -68,12 +68,13 @@ def run_analysis(payload: QueryRequest, db: Session, request_id: str) -> tuple[Q
                 result = execute_select_sql(validated)
             finally:
                 response.timings.execution_ms = round((time.perf_counter() - stage) * 1000)
+            presented_result = shape_comparison_result(plan, result)
             for key in ("columns", "rows", "row_count", "possibly_truncated"):
-                setattr(response, key, result[key])
+                setattr(response, key, presented_result[key])
             response.status = "success"
             stage = time.perf_counter()
             try:
-                response.analysis = analyze_result(plan, result, validated)
+                response.analysis = analyze_result(plan, presented_result, validated)
             except (ArithmeticError, ValueError, TypeError, IndexError):
                 response.warnings.append("Results are available, but automated insights could not be calculated.")
                 logger.warning(
