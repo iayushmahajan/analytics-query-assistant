@@ -2,7 +2,19 @@
 
 A governed analytics workspace for non-technical stakeholders to explore official European retail-market data. The dashboard and natural-language analyst use one imported dataset: Eurostat's monthly retail trade volume index (`sts_trtu_m`). A question is converted into a typed query plan and read-only PostgreSQL statement, validated before execution, and returned with the SQL and evidence visible to the user.
 
-![European Retail Intelligence dashboard](docs/screenshots/dashboard-overview.png)
+## Interface
+
+### Market overview
+
+![European Retail Intelligence market overview](docs/screenshots/dashboard-overview.png)
+
+The overview combines Germany and EU-27 performance, category movement, country benchmarking, unusual movements and source-quality evidence from the same Eurostat snapshot.
+
+### Governed natural-language analysis
+
+![Germany and EU-27 natural-language comparison result](docs/screenshots/comparison-analysis.png)
+
+The analyst returns the answer, chart or table, calculated findings, query scope and inspectable SQL. This example compares Germany with the EU-27 over the latest 12 comparable months and explains both index-point and relative changes.
 
 ## What the platform answers
 
