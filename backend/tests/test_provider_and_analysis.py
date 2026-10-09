@@ -191,11 +191,16 @@ def test_long_form_time_comparison_is_pivoted_and_analyzed_as_two_series():
     assert shaped["rows"][-1] == ["2026-08-01", "99.9", "105.0", "-5.1"]
     analysis = analyze_result(plan, shaped, validate_sql(plan.sql))
     assert analysis.answer == (
-        "From 2026-06-01 to 2026-08-01, Germany decreased by 2 index points, while "
-        "EU-27 decreased by 0.40 index points."
+        "From 2026-06-01 to 2026-08-01, Germany decreased from 101.90 to 99.90 "
+        "(-2 index points; about -2.0% relative to the starting month), while EU-27 "
+        "decreased from 105.40 to 105 (-0.40 index points; about -0.4% relative to the starting month)."
     )
     assert "5.10 index points below EU-27" in analysis.findings[0]
-    assert analysis.findings[1] == "Germany was above EU-27 in 0 of 3 comparable months."
+    assert analysis.findings[1] == (
+        "Against the 2021=100 baseline, Germany's latest level was 0.10% below the 2021 "
+        "average and EU-27's was 5% above it."
+    )
+    assert analysis.findings[2] == "Germany was above EU-27 in 0 of 3 comparable months."
     assert analysis.trends[0] == "Over the window, Germany underperformed EU-27 by 1.60 index points."
     assert analysis.follow_up_questions[0] == (
         "In which month was the gap between Germany and EU-27 widest?"

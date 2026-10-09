@@ -13,7 +13,7 @@ The curated dataset covers the EU-27 aggregate and all 27 member states from 201
 - non-food excluding automotive fuel;
 - automotive fuel.
 
-All observations use Eurostat's seasonally and calendar-adjusted volume index with 2021=100. Values measure sales volume, not money. Monthly and annual movements are differences in index points.
+All observations use Eurostat's seasonally and calendar-adjusted volume index with 2021=100. Values measure sales volume, not money. A level of 105 means the estimated retail volume is 5% above the average level in 2021. Moving from 103.9 to 105.0 is an increase of 1.1 index points and approximately 1.1% relative to the starting level (`1.1 / 103.9`).
 
 The dashboard provides Germany and EU-27 history, Germany's category mix, a same-period country ranking, requested-cell completeness, latest-period country coverage and provisional-value counts. It also flags unusual monthly movements with a robust score calculated against up to 36 preceding monthly changes. A flag means a movement is statistically unusual in that series; it does not identify a cause.
 

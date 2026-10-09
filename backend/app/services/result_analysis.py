@@ -160,12 +160,29 @@ def _series_name(column: str) -> str:
     return _humanize(stem).title()
 
 
-def _movement(value: Decimal) -> str:
-    if value > 0:
-        return f"increased by {_format_value(value, None)} index points"
-    if value < 0:
-        return f"decreased by {_format_value(abs(value), None)} index points"
-    return "was unchanged"
+def _indexed_movement(start: Decimal, end: Decimal) -> str:
+    change = end - start
+    if not change:
+        return f"was unchanged at {_format_value(end, None)}"
+    direction = "increased" if change > 0 else "decreased"
+    sign = "+" if change > 0 else "-"
+    relative = abs(change / start * 100) if start else None
+    relative_text = (
+        f"; about {sign}{relative:.1f}% relative to the starting month" if relative is not None else ""
+    )
+    return (
+        f"{direction} from {_format_value(start, None)} to {_format_value(end, None)} "
+        f"({sign}{_format_value(abs(change), None)} index points{relative_text})"
+    )
+
+
+def _reference_position(value: Decimal) -> str:
+    difference = value - Decimal(100)
+    if difference > 0:
+        return f"{_format_value(difference, None)}% above"
+    if difference < 0:
+        return f"{_format_value(abs(difference), None)}% below"
+    return "equal to"
 
 
 def _analyze_time_comparison(
@@ -204,16 +221,31 @@ def _analyze_time_comparison(
     relative_word = "outperformed" if relative_change > 0 else "underperformed" if relative_change < 0 else "matched"
     gap_change = abs(latest_gap) - abs(first_gap)
     gap_word = "widened" if gap_change > 0 else "narrowed" if gap_change < 0 else "was unchanged"
-    answer = (
-        f"From {first_period} to {last_period}, {names[0]} {_movement(changes[0])}, while "
-        f"{names[1]} {_movement(changes[1])}."
-    )
+    if metric_name == "retail_index":
+        answer = (
+            f"From {first_period} to {last_period}, {names[0]} "
+            f"{_indexed_movement(first_values[0], last_values[0])}, while {names[1]} "
+            f"{_indexed_movement(first_values[1], last_values[1])}."
+        )
+    else:
+        answer = (
+            f"From {first_period} to {last_period}, {names[0]} changed by "
+            f"{_format_value(changes[0], None)} points, while {names[1]} changed by "
+            f"{_format_value(changes[1], None)} points."
+        )
     findings = [
         f"In {last_period}, {names[0]} was {_format_value(abs(latest_gap), None)} index points "
         f"{relation} {names[1]} ({_format_value(last_values[0], None)} versus "
         f"{_format_value(last_values[1], None)}).",
         f"{names[0]} was above {names[1]} in {first_above} of {comparable} comparable months.",
     ]
+    if metric_name == "retail_index":
+        findings.insert(
+            1,
+            f"Against the 2021=100 baseline, {names[0]}'s latest level was "
+            f"{_reference_position(last_values[0])} the 2021 average and {names[1]}'s was "
+            f"{_reference_position(last_values[1])} it.",
+        )
     trends = [
         f"Over the window, {names[0]} {relative_word} {names[1]} by "
         f"{_format_value(abs(relative_change), None)} index points.",

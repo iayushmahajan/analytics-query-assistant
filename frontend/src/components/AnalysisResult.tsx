@@ -158,7 +158,7 @@ export function AnalysisResult({
           {[
             ["Metric definition", metric?.calculation],
             ["Date range", plan?.date_range],
-            ["Unit", "Retail volume index (2021=100); changes are index points"],
+            ["Unit", "Retail volume index (2021=100). A level of 105 means volume is 5% above the 2021 average. A move from 103.9 to 105.0 is +1.1 index points, approximately +1.1% relative to the starting level."],
             ["Observation status", metric?.included_statuses.join(", ") || "Official and provisional values may be included"],
             [
               "Applied filters",
